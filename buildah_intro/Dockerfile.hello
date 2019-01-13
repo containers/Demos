@@ -1,0 +1,9 @@
+FROM alpine
+
+RUN apk add python3
+
+ADD HelloFromContainer.py /home
+
+WORKDIR HOME
+
+CMD ["python3","/home/HelloFromContainer.py"] 
