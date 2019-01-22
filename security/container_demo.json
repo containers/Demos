@@ -1,0 +1,97 @@
+{
+	"metadata": {
+		"name": "podsandbox1-fedora"
+	},
+	"image": {
+		"image": "docker.io/library/fedora"
+	},
+	"args": [
+				"/bin/bash"
+	],
+	"working_dir": "/",
+	"envs": [
+		{
+			"key": "PATH",
+			"value": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+		},
+		{
+			"key": "TERM",
+			"value": "xterm"
+		},
+		{
+			"key": "DISTTAG",
+			"value": "f26container"
+		},
+		{
+			"key": "FGC",
+			"value": "f26"
+		},
+		{
+			"key": "NAME",
+			"value": "redis"
+		},
+		{
+			"key": "VERSION",
+			"value": "0"
+		},
+		{
+			"key": "RELEASE",
+			"value": "6"
+		},
+		{
+			"key": "ARCH",
+			"value": "x86_64"
+		},
+		{
+			"key": "REDIS_VERSION",
+			"value": "0"
+		},
+		{
+			"key": "HOME",
+			"value": "/home"
+		},
+		{
+			"key": "CONTAINER_SCRIPTS_PATH",
+			"value": "/usr/share/container-scripts/redis"
+		},
+		{
+			"key": "REDIS_PREFIX",
+			"value": "/usr"
+		}
+	],
+	"labels": {
+		"tier": "backend"
+	},
+	"annotations": {
+		"pod": "podsandbox1"
+	},
+	"readonly_rootfs": false,
+	"log_path": "",
+	"stdin": true,
+	"stdin_once": false,
+	"tty": true,
+	"linux": {
+		"resources": {
+			"memory_limit_in_bytes": 209715200,
+			"cpu_period": 10000,
+			"cpu_quota": 20000,
+			"cpu_shares": 512,
+			"oom_score_adj": 30,
+			"cpuset_cpus": "0",
+			"cpuset_mems": "0"
+		},
+		"security_context": {
+			"run_as_user": {
+				"value": 0
+			},
+			"namespace_options": {
+				"pid": 1
+			},
+			"capabilities": {
+				"add_capabilities": [
+					"sys_admin"
+				]
+			}
+		}
+	}
+}
