@@ -29,7 +29,7 @@ setup () {
 	exit 1
     fi
     # Verify firefox exists
-    if ! hash firefox -h 2>/dev/null; then
+    if ! hash firefox 2>/dev/null; then
 	echo "Unable to find the firefox commmand"
 	exit 1
     fi
@@ -198,12 +198,12 @@ sendMessage "Check demoweb service"
 runCommand "sudo kubectl get svc"
 
 sendMessage "Check the IP for the demoweb pod"
-runCommand "sudo kubectl describe pod demoweb-libpod"
+runCommand "sudo kubectl describe pod demoweb"
 
 
 
-IP=`sudo kubectl describe pod demoweb-libpod | grep "Node:" | cut -f2 --delimiter /`
-PORT=`sudo kubectl get svc --no-headers=true demoweb-libpod  | awk '{print $5}' | cut -f 2 --delimiter : | sed -e "s/\/TCP//g"`
+IP=`sudo kubectl describe pod demoweb | grep "Node:" | cut -f2 --delimiter /`
+PORT=`sudo kubectl get svc --no-headers=true demoweb  | awk '{print $5}' | cut -f 2 --delimiter : | sed -e "s/\/TCP//g"`
 
 sendMessage "Connect web browser to http://$IP:$PORT"
 
