@@ -3,7 +3,6 @@
 # devconf-demos.sh demo script.
 # This script will demonstrate security features of buildah,podman,skopeo and cri-o
 
-# TODO: Add a trap cleanup function
 # Setting up some colors for helping read the demo output.
 # Comment out any of the below to turn off that color.
 bold=$(tput bold)
@@ -24,42 +23,87 @@ read_yellow() {
     read -p "${bold}${yellow}$1${reset}"
 }
 
-# Initial setup
-setup() {
-    rpm -q podman buildah audit >/dev/null
-    if [[ $? != 0 ]]; then
-	echo $0 requires the podman, buildah and audit packages be installed
-	exit 1
-    fi
-    command -v docker > /dev/null
-    if [[ $? != 0 ]]; then
-	echo $0 requires the docker package be installed
-	exit 1
-    fi
-    sudo cp /usr/share/doc/audit/rules/10-base-config.rules /etc/audit/rules.d/audit.rules
+POD=
+# only remove images if they were added by this script
+UBUNTU_RMI=false
+ALPINE_RMI=false
+FEDORA_DOCKER_RMI=false
+FEDORA_PODMAN_RMI=false
+BUILDAH_CTR_RMI=false
+cleanup() {
+    echo_bright "--> cleanup"
+    echo ""
+    sudo rm -f /etc/audit/rules.d/audit-demo.rules
     sudo augenrules --load > /dev/null
     sudo systemctl restart auditd 2> /dev/null
+    sudo rm -f a_file_owned_by_root
+    rm -rf "$PWD"/myvol
+    if $BUILDAH_CTR_RMI; then
+        sudo podman rmi buildah-ctr:latest
+    fi
+    if $FEDORA_DOCKER_RMI; then
+        sudo docker rmi fedora:latest
+    fi
+    if $FEDORA_PODMAN_RMI; then
+        sudo podman rmi fedora:latest
+    fi
+    if $UBUNTU_RMI; then
+        sudo docker rmi ubuntu:latest
+    fi
+    if $ALPINE_RMI; then
+        podman rmi alpine:latest
+    fi
+    if sudo podman images | grep ubuntu | grep demo; then
+        sudo podman rmi ubuntu:demo
+    fi
+    if [ ! -z $POD ]; then
+        sudo crictl stopp $POD
+        sudo crictl rmp $POD
+    fi
+    sudo podman stop -t 0 sleep_test 2> /dev/null
+    sudo podman rm -f sleep_test 2> /dev/null
+    sudo podman stop -t 0 another_test 2> /dev/null
+    sudo podman rm -f another_test 2> /dev/null
+    sudo podman stop -t 0 top_test 2> /dev/null
+    sudo podman rm -f top_test 2> /dev/null
     sudo systemctl restart docker
-    sudo podman kill -a
-    sudo podman rm -af
-    podman kill -a
-    sleep 1
-    podman rm -af
-    sudo podman rmi $(sudo podman images | grep none | awk '{print $3}')
-    sudo docker pull ubuntu
+}
+
+trap cleanup EXIT
+# Initial setup
+setup() {
+    if ! rpm -q podman buildah audit >/dev/null; then
+	echo "$0" requires the podman, buildah and audit packages be installed
+	exit 1
+    fi
+    if ! command -v docker > /dev/null; then
+	echo "$0" requires the docker package be installed
+	exit 1
+    fi
+    sudo cp /usr/share/doc/audit/rules/10-base-config.rules /etc/audit/rules.d/audit-demo.rules
+    sudo augenrules --load > /dev/null
+    sudo systemctl restart auditd 2> /dev/null
+    if ! sudo docker images | grep ubuntu | grep latest; then
+	UBUNTU_RMI=true
+        sudo docker pull ubuntu:latest
+    fi
+    if ! sudo docker images | grep fedora | grep latest; then
+	FEDORA_DOCKER_RMI=true
+	sudo docker pull fedora:latest
+    fi
+    if ! sudo podman images | grep fedora | grep latest; then
+	FEDORA_PODMAN_RMI=true
+	sudo podman pull fedora:latest
+    fi
+    sudo touch a_file_owned_by_root
+    sudo chmod 0600 a_file_owned_by_root
     clear
 }
 
 buildah_image() {
-    cat >$PWD/Dockerfile.buildah <<_EOF
-FROM fedora
-RUN dnf -y install buildah; dnf -y clean all
-ENTRYPOINT ["/usr/bin/buildah"]
-WORKDIR /root
-_EOF
-    sudo podman images  | grep -q -w buildah-ctr
-    if [[ $? != 0 ]]; then
-	sudo podman build -t buildah-ctr -f Dockerfile.buildah .
+    if ! sudo podman images  | grep -q -w buildah-ctr; then
+	BUILDAH_CTR_RMI=true
+	sudo podman pull quay.io/sallyom/buildah-ctr
     fi
 }
 
@@ -76,47 +120,41 @@ buildah_minimal_image() {
 
   read_bright "--> ctr=\$(sudo buildah from scratch)"
   ctr=$(sudo buildah from scratch)
-  echo $ctr
+  echo "$ctr"
   echo ""
 
   read_bright "--> mnt=\$(sudo buildah mount \$ctr)"
-  mnt=$(sudo buildah mount $ctr)
-  echo $mnt
+  mnt=$(sudo buildah mount "$ctr")
+  echo "$mnt"
   echo ""
 
   echo_bright "--> sudo dnf install -y --installroot=\$mnt busybox --releasever=29 --disablerepo=* --enablerepo=fedora"
-  sudo dnf install -y --installroot=$mnt busybox --releasever=29 --disablerepo=* --enablerepo=fedora 2> /dev/null
+  sudo dnf install -y --installroot="$mnt" busybox --releasever=29 --disablerepo=* --enablerepo=fedora 2> /dev/null
   echo ""
 
   read_bright "--> sudo dnf clean all --installroot=\$mnt"
   echo ""
-  sudo dnf clean all --installroot=$mnt 2> /dev/null
+  sudo dnf clean all --installroot="$mnt" 2> /dev/null
   echo ""
 
   read_bright "--> sudo buildah unmount \$ctr"
-  sudo buildah unmount $ctr
+  sudo buildah unmount "$ctr"
   echo ""
 
-  read_bright "--> sudo buildah commit \$ctr minimal-image"
-  sudo buildah commit $ctr minimal-image
+  read_bright "--> sudo buildah commit --rm \$ctr minimal-image"
+  sudo buildah commit --rm "$ctr" minimal-image
   echo ""
 
-  read_bright "--> sudo podman run minimal-image ping"
-  sudo podman run minimal-image ping
+  read_bright "--> sudo podman run --rm minimal-image ping"
+  sudo podman run --rm minimal-image ping
   echo ""
 
-  read_bright "--> sudo podman run minimal-image python"
-  sudo podman run minimal-image python
+  read_bright "--> sudo podman run --rm minimal-image python"
+  sudo podman run --rm minimal-image python
   echo ""
 
-  read_bright "--> sudo podman run minimal-image busybox"
-  sudo podman run minimal-image busybox
-  echo ""
-
-  read_bright "--> cleanup"
-  echo ""
-  sudo buildah rm -a
-  sudo podman rm -a -f
+  read_bright "--> sudo podman run --rm minimal-image busybox"
+  sudo podman run --rm minimal-image busybox
   echo ""
 
   read_bright "--> clear"
@@ -128,39 +166,36 @@ buildah_in_container() {
     read_yellow "Buildah inside a container"
     echo ""
     read_bright "--> cat Dockerfile.buildah (built previously)"
-    cat $PWD/Dockerfile.buildah
+    cat <<_EOF
+FROM fedora
+RUN dnf -y install buildah; dnf -y clean all
+ENTRYPOINT ["/usr/bin/buildah"]
+WORKDIR /root
+_EOF
     echo ""
     echo ""
     sudo mkdir -p /var/lib/mycontainer
-    mkdir -p $PWD/myvol
-    cat >$PWD/myvol/Dockerfile <<_EOF
+    mkdir -p "$PWD"/myvol
+    cat >"$PWD"/myvol/Dockerfile <<_EOF
 FROM alpine
 ENV foo=bar
 LABEL colour=bright
 _EOF
 
     read_bright "--> cat Dockerfile (used inside buildah-ctr)"
-    cat $PWD/myvol/Dockerfile
+    cat "$PWD"/myvol/Dockerfile
     echo ""
     echo ""
-    read_bright "--> sudo podman run -v \$PWD/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs bud -t myimage --isolation chroot /myvol"
-    sudo podman run --net=host -v $PWD/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs bud -t myimage --isolation chroot /myvol
-    echo ""
-
-    read_bright "--> sudo podman run -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs images"
-    sudo podman run --net=host -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs images
+    read_bright "--> sudo podman run --rm -v \$PWD/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs bud -t myimage --isolation chroot /myvol"
+    sudo podman run --rm --net=host -v "$PWD"/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs bud -t myimage --isolation chroot /myvol
     echo ""
 
-    read_bright "--> sudo podman run -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs rmi --force --all"
-    sudo podman run --net=host -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs rmi -f --all
+    read_bright "--> sudo podman run --rm -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs images"
+    sudo podman run --rm --net=host -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs images
     echo ""
 
-    read_bright "--> cleanup"
-    echo ""
-    echo "podman rm -a -f"
-    sudo podman rm -a -f 2> /dev/null
-    rm -rf $PWD/myvol
-    rm Dockerfile.buildah
+    read_bright "--> sudo podman run --rm -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs rmi --force --all"
+    sudo podman run --rm --net=host -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs rmi -f --all
     echo ""
 
     read_bright "--> clear"
@@ -172,8 +207,12 @@ podman_rootless() {
     read_yellow "Podman as rootless"
     echo ""
 
-    read_bright "--> podman pull alpine"
-    podman pull alpine
+    read_bright "--> podman images | grep alpine | grep latest"
+    if ! podman images | grep alpine | grep latest; then
+        read_bright "--> podman pull alpine:latest"
+        ALPINE_RMI=true
+        podman pull alpine:latest
+    fi
     echo ""
 
     read_yellow "non-privileged images"
@@ -186,8 +225,8 @@ podman_rootless() {
     sudo podman images
     echo ""
 
-    read_bright "--> podman run alpine ls"
-    podman run --net=host --rm alpine ls
+    read_bright "--> podman run --rm alpine:latest id && echo On the host I am not root && id"
+    podman run --rm --net=host --rm alpine:latest id && echo On the host I am not root && id
     echo ""
 
     read_bright "--> clear"
@@ -199,7 +238,7 @@ podman_userns() {
 The demo will now unshare the usernamespace of a rootless container,
 using the 'buildah unshare' command.
 
-First outside of the continer, we will cat /etc/subuid, and you should
+First outside of the container, we will cat /etc/subuid, and you should
 see your username.  This indicates the UID map that is assigned to you.
 When executing buildah unshare, it will map your UID to root within the container
 and then map the range of UIDS in /etc/subuid starting at UID=1 within your container.
@@ -218,6 +257,9 @@ Explore your home directory to see what it looks like while in a user namespace.
 
 Type 'exit' to exit the user namespace and continue running the demo.
 "
+    read_bright "--> ls -al (on the host)"
+    ls -al
+    echo ""
     read_bright "--> buildah unshare"
     buildah unshare
     echo ""
@@ -229,8 +271,8 @@ Type 'exit' to exit the user namespace and continue running the demo.
     read_yellow "Podman User Namespace Support"
     echo ""
 
-    read_bright "--> sudo podman run --uidmap 0:100000:5000 -d fedora sleep 1000"
-    sudo podman run --net=host --uidmap 0:100000:5000 -d fedora sleep 1000
+    read_bright "--> sudo podman run --uidmap 0:100000:5000 -d --name sleep_test fedora:latest sleep 1000"
+    sudo podman run --net=host --uidmap 0:100000:5000 -d --name sleep_test fedora:latest sleep 1000
     echo ""
 
     read_bright "--> sudo podman top --latest user huser | grep --color=auto -B 1 100000"
@@ -240,9 +282,11 @@ Type 'exit' to exit the user namespace and continue running the demo.
     read_bright "--> ps -ef | grep -v grep | grep --color=auto 100000"
     ps -ef | grep -v grep | grep --color=auto 100000
     echo ""
+    sudo podman stop -t 0 sleep_test 2> /dev/null
+    sudo podman rm -f sleep_test 2> /dev/null
 
-    read_bright "--> sudo podman run --uidmap 0:200000:5000 -d fedora sleep 1000"
-    sudo podman run --net=host --uidmap 0:200000:5000 -d fedora sleep 1000
+    read_bright "--> sudo podman run --uidmap 0:200000:5000 -d --name another_test fedora:latest sleep 1000"
+    sudo podman run --net=host --uidmap 0:200000:5000 -d --name another_test fedora:latest sleep 1000
     echo ""
 
     read_bright "--> sudo podman top --latest user huser | grep --color=auto -B 1 200000"
@@ -254,9 +298,10 @@ Type 'exit' to exit the user namespace and continue running the demo.
     echo ""
 
     read_bright "--> cleanup"
-    sudo podman stop -t 0 -a 2> /dev/null
-    sudo buildah rm -a 2> /dev/null
-    sudo podman rm -a -f 2> /dev/null
+    sudo podman stop -t 0 sleep_test 2> /dev/null
+    sudo podman rm -f sleep_test 2> /dev/null
+    sudo podman stop -t 0 another_test 2> /dev/null
+    sudo podman rm -f another_test 2> /dev/null
     echo ""
 
     read_bright "--> clear"
@@ -273,12 +318,12 @@ podman_fork_exec() {
     echo ""
     echo ""
 
-    read_bright "--> sudo podman run -ti fedora bash -c \"cat /proc/self/loginuid; echo\""
-    sudo podman run -ti fedora bash -c "cat /proc/self/loginuid; echo"
+    read_bright "--> sudo podman run -ti --rm fedora:latest bash -c \"cat /proc/self/loginuid; echo\""
+    sudo podman run -ti --rm fedora:latest bash -c "cat /proc/self/loginuid; echo"
     echo ""
 
-    read_bright "--> sudo docker run -ti fedora bash -c \"cat /proc/self/loginuid; echo\""
-    sudo docker run -ti fedora bash -c "cat /proc/self/loginuid; echo"
+    read_bright "--> sudo docker run -ti --rm fedora:latest bash -c \"cat /proc/self/loginuid; echo\""
+    sudo docker run -ti --rm fedora:latest bash -c "cat /proc/self/loginuid; echo"
     echo ""
 
     # Showing how podman keeps track of the person trying to wreak havoc on your system
@@ -286,16 +331,16 @@ podman_fork_exec() {
     sudo auditctl -w /etc/shadow 2>/dev/null
     echo ""
 
-    read_bright "--> sudo podman run --privileged -v /:/host fedora touch /host/etc/shadow"
-    sudo podman run --privileged -v /:/host fedora touch /host/etc/shadow
+    read_bright "--> sudo podman run --rm --privileged -v /:/host fedora:latest touch /host/etc/shadow"
+    sudo podman run --privileged --rm -v /:/host fedora:latest touch /host/etc/shadow
     echo ""
 
     read_bright "--> ausearch -m path -ts recent -i | grep touch | grep --color=auto 'auid=[^ ]*'"
     sudo ausearch -m path -ts recent -i | grep touch | grep --color=auto 'auid=[^ ]*'
     echo ""
 
-    read_bright "--> sudo docker run --privileged -v /:/host fedora touch /host/etc/shadow"
-    sudo docker run --privileged -v /:/host fedora touch /host/etc/shadow
+    read_bright "--> sudo docker run --rm --privileged -v /:/host fedora:latest touch /host/etc/shadow"
+    sudo docker run --privileged --rm -v /:/host fedora:latest touch /host/etc/shadow
     echo ""
 
     read_bright "--> ausearch -m path -ts recent -i | grep touch | grep --color=auto 'auid=[^ ]*'"
@@ -311,8 +356,8 @@ podman_top() {
     read_yellow "Podman top features"
     echo ""
 
-    read_bright "--> sudo podman run -d fedora sleep 1000"
-    sudo podman run -d fedora sleep 1000
+    read_bright "--> sudo podman run -d --name top_test fedora:latest sleep 1000"
+    sudo podman run -d --name top_test fedora:latest sleep 1000
     echo ""
 
     read_bright "--> sudo podman top --latest pid hpid"
@@ -330,6 +375,11 @@ podman_top() {
     sudo podman top --latest capeff
     echo ""
 
+    read_bright "--> cleanup"
+    sudo podman stop -t 0 top_test 2> /dev/null
+    sudo podman rm -f top_test 2> /dev/null
+    echo ""
+
     read_bright "--> clear"
     clear
 }
@@ -337,6 +387,10 @@ podman_top() {
 skopeo_inspect() {
     # Skopeo inspect a remote image
     read_yellow "Inspect a remote image using skopeo"
+    echo ""
+
+    read_bright "--> skopeo"
+    skopeo
     echo ""
 
     read_bright "--> skopeo inspect docker://docker.io/fedora"
@@ -348,14 +402,6 @@ skopeo_inspect() {
 }
 
 skopeo_cp_from_docker_to_podman() {
-    # Cleanup listing podman images first
-    read_yellow "Cleaning up podman images"
-    read_bright "--> sudo podman rmi $(sudo podman images | grep none | awk '{print $3}')"
-    sudo podman rmi $(sudo podman images | grep none | awk '{print $3}') 2> /dev/null
-    echo ""
-    echo "${bold}${bright}$1${reset}" "--> clear"
-    clear
-
     read_yellow "Copy images from docker storage to podman storage"
     echo ""
 
@@ -367,16 +413,12 @@ skopeo_cp_from_docker_to_podman() {
     sudo docker images
     echo ""
 
-    read_bright "--> sudo skopeo copy docker://docker.io/ubuntu:latest containers-storage:localhost/ubuntu:latest"
-    sudo skopeo copy docker://docker.io/ubuntu:latest containers-storage:localhost/ubuntu:latest 2> /dev/null
+    read_bright "--> sudo skopeo copy docker-daemon:ubuntu:latest containers-storage:localhost/ubuntu:demo"
+    sudo skopeo copy docker-daemon:ubuntu:latest containers-storage:localhost/ubuntu:demo 2> /dev/null
     echo ""
 
     read_bright "--> sudo podman images"
     sudo podman images
-    echo ""
-
-    read_bright "--> cleanup"
-    sudo podman rmi ubuntu:latest
     echo ""
 
     read_bright "--> clear"
@@ -388,8 +430,8 @@ crio_read_only() {
     read_yellow "CRI-O read-only mode"
     echo ""
 
-    read_bright "--> cat /etc/crio/crio.conf | grep read_only"
-    cat /etc/crio/crio.conf | grep read_only
+    read_bright "--> sudo grep read_only /etc/crio/crio.conf"
+    sudo grep read_only /etc/crio/crio.conf
     echo ""
 
     read_bright "--> sudo systemctl restart crio"
@@ -398,25 +440,25 @@ crio_read_only() {
 
     read_bright "--> POD=\$(sudo crictl runp sandbox_config.json)"
     POD=$(sudo crictl runp sandbox_config.json)
-    echo $POD
+    echo "$POD"
     echo ""
 
     read_bright "--> CTR=\$(sudo crictl create \$POD container_demo.json sandbox_config.json)"
-    CTR=$(sudo crictl create $POD container_demo.json sandbox_config.json)
-    echo $CTR
+    CTR=$(sudo crictl create "$POD" container_demo.json sandbox_config.json)
+    echo "$CTR"
     echo ""
 
     read_bright "--> sudo crictl start \$CTR"
-    sudo crictl start $CTR
+    sudo crictl start "$CTR"
     echo ""
 
     read_bright "--> sudo crictl exec --sync \$CTR dnf install buildah"
-    sudo crictl exec --sync $CTR dnf install buildah
+    sudo crictl exec --sync "$CTR" dnf install buildah
     echo ""
 
     read_bright "--> cleanup"
-    sudo crictl stopp $POD 2> /dev/null
-    sudo crictl rmp $POD 2> /dev/null
+    sudo crictl stopp "$POD" 2> /dev/null
+    sudo crictl rmp "$POD" 2> /dev/null
     echo ""
 
     read_bright "--> clear"
@@ -439,29 +481,29 @@ crio_modify_caps() {
 
     read_bright "--> POD=\$(sudo crictl runp sandbox_config.json)"
     POD=$(sudo crictl runp sandbox_config.json)
-    echo $POD
+    echo "$POD"
     echo ""
 
     read_bright "--> CTR=\$(sudo crictl create \$POD container_demo.json sandbox_config.json)"
-    CTR=$(sudo crictl create $POD container_demo.json sandbox_config.json)
-    echo $CTR
+    CTR=$(sudo crictl create "$POD" container_demo.json sandbox_config.json)
+    echo "$CTR"
     echo ""
 
     read_bright "--> sudo crictl start \$CTR"
-    sudo crictl start $CTR
+    sudo crictl start "$CTR"
     echo ""
 
     read_bright "--> sudo crictl exec -i -t \$CTR capsh --print"
-    sudo crictl exec -i -t $CTR capsh --print
+    sudo crictl exec -i -t "$CTR" capsh --print
     echo ""
 
     read_bright "--> sudo cat /run/containers/storage/overlay-containers/\$POD/userdata/config.json | grep -A 50 'ociVersion'"
-    sudo cat /run/containers/storage/overlay-containers/$POD/userdata/config.json | grep -A 50 'ociVersion'
+    sudo cat /run/containers/storage/overlay-containers/"$POD"/userdata/config.json | grep -A 50 'ociVersion'
     echo ""
 
     read_bright "--> cleanup"
-    sudo crictl stopp $POD
-    sudo crictl rmp $POD
+    sudo crictl stopp "$POD"
+    sudo crictl rmp "$POD"
     echo ""
 
     read_bright "--> clear"
