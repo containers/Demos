@@ -9,7 +9,7 @@
 # Setting up some colors for helping read the demo output.
 # Comment out any of the below to turn off that color.
 bold=$(tput bold)
-blue=$(tput setaf 4)
+cyan=$(tput setaf 6)
 reset=$(tput sgr0)
 
 read_color() {
@@ -17,7 +17,7 @@ read_color() {
 }
 
 echo_color() {
-    echo "${blue}$1${reset}"
+    echo "${cyan}$1${reset}"
 }
 
 setup() {
@@ -124,7 +124,8 @@ buildah_using_from_scratch() {
     read -p "Enter to continue"
 
     echo
-    echo_color "Install Fedora 29 and coreutils into the container from the host"
+    echo_color "Install Fedora 29 bash and coreutils into the container from the host."
+    echo_color "Only bash and coreutils packages and their dependencies will be installed."
     echo
     read_color "sudo dnf install --installroot \$scratchmnt --release 29 bash coreutils --setopt install_weak_deps=false -y"
     sudo dnf install --installroot $scratchmnt --release 29 bash coreutils --setopt install_weak_deps=false -y
@@ -137,34 +138,42 @@ buildah_using_from_scratch() {
     sudo ls $scratchmnt
 
     echo
-    echo_color "Show /usr/bin inside of the container"
+    echo_color "Show /usr/local/bin inside of the container"
     echo
-    read_color "sudo buildah run \$newcontainer -- ls -alF /usr/bin"
-    sudo buildah run $newcontainer -- ls -alF /usr/bin
+    read_color "sudo buildah run \$newcontainer -- ls -alF /usr/local/bin"
+    sudo buildah run $newcontainer -- ls -alF /usr/local/bin
 
+    /bin/cat > ./runecho.sh <<- "EOF" 
+#!/bin/bash
+for i in {1..9};
+do
+    echo "This is a new container from buildahdemo [" $i "]"
+done
+EOF
     echo
     echo_color "Display contents of runecho.sh"
     echo
     read_color "cat ./runecho.sh"
     cat ./runecho.sh
+    chmod +x ./runecho.sh
 
     echo
     echo_color "Copy the script into the container"
     echo
-    read_color "sudo buildah copy \$newcontainer ./runecho.sh /usr/bin"
-    sudo buildah copy $newcontainer ./runecho.sh /usr/bin
+    read_color "sudo buildah copy \$newcontainer ./runecho.sh /usr/local/bin"
+    sudo buildah copy $newcontainer ./runecho.sh /usr/local/bin
 
     echo
     echo_color "Set the cmd of the container to the script"
     echo
-    read_color "sudo buildah config --cmd /usr/bin/runecho.sh \$newcontainer"
-    sudo buildah config --cmd /usr/bin/runecho.sh $newcontainer
+    read_color "sudo buildah config --cmd /usr/local/bin/runecho.sh \$newcontainer"
+    sudo buildah config --cmd /usr/local/bin/runecho.sh $newcontainer
 
     echo
     echo_color "Let's run the container which will run the script"
     echo
-    read_color "sudo buildah run $newcontainer /usr/bin/runecho.sh"
-    sudo buildah run $newcontainer /usr/bin/runecho.sh
+    read_color "sudo buildah run $newcontainer /usr/local/bin/runecho.sh"
+    sudo buildah run $newcontainer /usr/local/bin/runecho.sh
 
     echo
     echo_color "Configure the container added created-by then author information"
@@ -240,6 +249,13 @@ run_image_in_docker() {
 
 buildah_from_dockerfile() {
 
+    /bin/cat <<- "EOF" > ./Dockerfile.hello
+FROM alpine
+RUN apk add python3
+ADD HelloFromContainer.py /home
+WORKDIR HOME
+CMD ["python3","/home/HelloFromContainer.py"]
+EOF
     echo
     echo_color "Create image from a Dockerfile and run the container"
     echo_color "Let's look at our Dockerfile"
@@ -247,6 +263,16 @@ buildah_from_dockerfile() {
     read_color "cat ./Dockerfile.hello"
     cat ./Dockerfile.hello
 
+    /bin/cat <<- "EOF" > ./HelloFromContainer.py
+#!/usr/bin/env python3
+#
+import sys
+def main(argv):
+    for i in range(0,10):
+        print ("Hello World from Container Land! Message # [%d]" % i)
+if __name__ == "__main__":
+    main(sys.argv[1:])
+EOF
     echo
     echo_color "Let's look at our HelloFromContainer.py"
     echo
@@ -345,6 +371,11 @@ clean_images_and_containers() {
     clear
 }
 
+clean_temp_files() {
+
+    rm -rf Dockerfile.hello runecho.sh HelloFromContainer.py
+}
+
 setup
 
 intro
@@ -362,6 +393,10 @@ buildah_from_dockerfile
 clean_images_and_containers
 
 buildah_from_dockerfile_rootless
+
+clean_images_and_containers
+
+clean_temp_files
 
 read -p "End of Demo!!!"
 echo
