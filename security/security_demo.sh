@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# devconf-demos.sh demo script.
+# security_demo.sh demo script.
 # This script will demonstrate security features of buildah,podman,skopeo and cri-o
 
 # Setting up some colors for helping read the demo output.
@@ -8,6 +8,7 @@
 bold=$(tput bold)
 bright=$(tput setaf 14)
 yellow=$(tput setaf 11)
+red=$(tput setaf 196)
 reset=$(tput sgr0)
 
 # commands
@@ -21,6 +22,11 @@ echo_bright() {
 # headings
 read_yellow() {
     read -p "${bold}${yellow}$1${reset}"
+}
+
+# headings
+read_red() {
+    read -p "${bold}${red}$1${reset}"
 }
 
 POD=
@@ -60,12 +66,8 @@ cleanup() {
         sudo crictl stopp $POD
         sudo crictl rmp $POD
     fi
-    sudo podman stop -t 0 sleep_test 2> /dev/null
-    sudo podman rm -f sleep_test 2> /dev/null
-    sudo podman stop -t 0 another_test 2> /dev/null
-    sudo podman rm -f another_test 2> /dev/null
-    sudo podman stop -t 0 top_test 2> /dev/null
-    sudo podman rm -f top_test 2> /dev/null
+    sudo podman stop -t 0 --all 2> /dev/null
+    sudo podman rm -f --all 2> /dev/null
     sudo systemctl restart docker
 }
 
@@ -108,7 +110,7 @@ buildah_image() {
 }
 
 intro() {
-    read_yellow "DevConf Demos!  Buildah, Podman, Skopeo, CRI-O Security"
+    read_yellow "Demos!  Buildah, Podman, Skopeo, CRI-O Security"
     echo ""
     clear
 }
@@ -271,8 +273,8 @@ Type 'exit' to exit the user namespace and continue running the demo.
     read_yellow "Podman User Namespace Support"
     echo ""
 
-    read_bright "--> sudo podman run --uidmap 0:100000:5000 -d --name sleep_test fedora:latest sleep 1000"
-    sudo podman run --net=host --uidmap 0:100000:5000 -d --name sleep_test fedora:latest sleep 1000
+    read_bright "--> sudo podman run --uidmap 0:100000:5000 -d fedora:latest sleep 1000"
+    sudo podman run --net=host --uidmap 0:100000:5000 -d fedora:latest sleep 1000
     echo ""
 
     read_bright "--> sudo podman top --latest user huser | grep --color=auto -B 1 100000"
@@ -282,11 +284,11 @@ Type 'exit' to exit the user namespace and continue running the demo.
     read_bright "--> ps -ef | grep -v grep | grep --color=auto 100000"
     ps -ef | grep -v grep | grep --color=auto 100000
     echo ""
-    sudo podman stop -t 0 sleep_test 2> /dev/null
-    sudo podman rm -f sleep_test 2> /dev/null
+    sudo podman stop -l -t 0 2> /dev/null
+    sudo podman rm -f -l 2> /dev/null
 
-    read_bright "--> sudo podman run --uidmap 0:200000:5000 -d --name another_test fedora:latest sleep 1000"
-    sudo podman run --net=host --uidmap 0:200000:5000 -d --name another_test fedora:latest sleep 1000
+    read_bright "--> sudo podman run --uidmap 0:200000:5000 -d fedora:latest sleep 1000"
+    sudo podman run --net=host --uidmap 0:200000:5000 -d fedora:latest sleep 1000
     echo ""
 
     read_bright "--> sudo podman top --latest user huser | grep --color=auto -B 1 200000"
@@ -298,10 +300,8 @@ Type 'exit' to exit the user namespace and continue running the demo.
     echo ""
 
     read_bright "--> cleanup"
-    sudo podman stop -t 0 sleep_test 2> /dev/null
-    sudo podman rm -f sleep_test 2> /dev/null
-    sudo podman stop -t 0 another_test 2> /dev/null
-    sudo podman rm -f another_test 2> /dev/null
+    sudo podman stop -t 0 --all 2> /dev/null
+    sudo podman rm -f -all 2> /dev/null
     echo ""
 
     read_bright "--> clear"
@@ -356,8 +356,8 @@ podman_top() {
     read_yellow "Podman top features"
     echo ""
 
-    read_bright "--> sudo podman run -d --name top_test fedora:latest sleep 1000"
-    sudo podman run -d --name top_test fedora:latest sleep 1000
+    read_bright "--> sudo podman run -d fedora:latest sleep 1000"
+    sudo podman run -d fedora:latest sleep 1000
     echo ""
 
     read_bright "--> sudo podman top --latest pid hpid"
@@ -376,8 +376,8 @@ podman_top() {
     echo ""
 
     read_bright "--> cleanup"
-    sudo podman stop -t 0 top_test 2> /dev/null
-    sudo podman rm -f top_test 2> /dev/null
+    sudo podman stop -t 0 --all 2> /dev/null
+    sudo podman rm -f --all 2> /dev/null
     echo ""
 
     read_bright "--> clear"
