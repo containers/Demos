@@ -58,7 +58,7 @@ cleanPodmanContainers() {
 }
 
 cleanKube() {
-    sudo kubectl delete svc demoweb-libpod
+    sudo kubectl delete svc demoweb
     sudo kubectl delete pod --all
 }
 
