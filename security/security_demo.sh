@@ -32,7 +32,7 @@ read_red() {
 POD=
 # only remove images if they were added by this script
 UBUNTU_RMI=false
-ALPINE_RMI=false
+UBI8_RMI=false
 FEDORA_DOCKER_RMI=false
 FEDORA_PODMAN_RMI=false
 BUILDAH_CTR_RMI=false
@@ -45,7 +45,7 @@ cleanup() {
     sudo rm -f a_file_owned_by_root
     rm -rf "$PWD"/myvol
     if $BUILDAH_CTR_RMI; then
-        sudo podman rmi buildah-ctr:latest
+        sudo podman rmi buildah/stable
     fi
     if $FEDORA_DOCKER_RMI; then
         sudo docker rmi fedora:latest
@@ -56,8 +56,8 @@ cleanup() {
     if $UBUNTU_RMI; then
         sudo docker rmi ubuntu:latest
     fi
-    if $ALPINE_RMI; then
-        podman rmi alpine:latest
+    if $UBI8_RMI; then
+        podman rmi ubi8-minimal
     fi
     if sudo podman images | grep ubuntu | grep demo; then
         sudo podman rmi ubuntu:demo
@@ -105,7 +105,7 @@ setup() {
 buildah_image() {
     if ! sudo podman images  | grep -q -w buildah-ctr; then
 	BUILDAH_CTR_RMI=true
-	sudo podman pull quay.io/sallyom/buildah-ctr
+	sudo podman pull quay.io/buildah/stable
     fi
 }
 
@@ -179,7 +179,7 @@ _EOF
     sudo mkdir -p /var/lib/mycontainer
     mkdir -p "$PWD"/myvol
     cat >"$PWD"/myvol/Dockerfile <<_EOF
-FROM alpine
+FROM ubi8-minimal
 ENV foo=bar
 LABEL colour=bright
 _EOF
@@ -188,16 +188,16 @@ _EOF
     cat "$PWD"/myvol/Dockerfile
     echo ""
     echo ""
-    read_bright "--> sudo podman run --rm -v \$PWD/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs bud -t myimage --isolation chroot /myvol"
-    sudo podman run --rm --net=host -v "$PWD"/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs bud -t myimage --isolation chroot /myvol
+    read_bright "--> sudo podman run --device=/dev/fuse --rm -v \$PWD/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah/stable buildah bud -t myimage /myvol"
+    sudo podman run --device=/dev/fuse --rm -v "$PWD"/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah/stable buildah bud -t myimage /myvol
     echo ""
 
-    read_bright "--> sudo podman run --rm -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs images"
-    sudo podman run --rm --net=host -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs images
+    read_bright "--> sudo podman run --rm -v /var/lib/mycontainer:/var/lib/containers:Z buildah/stable buildah images"
+    sudo podman run --rm -v /var/lib/mycontainer:/var/lib/containers:Z buildah/stable buildah images
     echo ""
 
-    read_bright "--> sudo podman run --rm -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs rmi --force --all"
-    sudo podman run --rm --net=host -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs rmi -f --all
+    read_bright "--> sudo podman run --rm -v /var/lib/mycontainer:/var/lib/containers:Z buildah/stable buildah rmi --force --all"
+    sudo podman run --rm -v /var/lib/mycontainer:/var/lib/containers:Z buildah/stable buildah rmi -f --all
     echo ""
 
     read_bright "--> clear"
@@ -209,11 +209,13 @@ podman_rootless() {
     read_yellow "Podman as rootless"
     echo ""
 
-    read_bright "--> podman images | grep alpine | grep latest"
-    if ! podman images | grep alpine | grep latest; then
-        read_bright "--> podman pull alpine:latest"
-        ALPINE_RMI=true
-        podman pull alpine:latest
+    read_bright "--> podman images | grep ubi8-minimal"
+    if ! podman images | grep ubi8-minimal; then
+        read_bright "--> podman pull ubi8-minimal"
+        UBI8_RMI=true
+        # currently need 'podman pull registry.access.redhat.com/ubi8-minimal'
+        # use buildah pull for now
+        buildah pull ubi8-minimal
     fi
     echo ""
 
@@ -227,8 +229,8 @@ podman_rootless() {
     sudo podman images
     echo ""
 
-    read_bright "--> podman run --rm alpine:latest id && echo On the host I am not root && id"
-    podman run --rm --net=host --rm alpine:latest id && echo On the host I am not root && id
+    read_bright "--> podman run --rm ubi8-minimal id && echo On the host I am not root && id"
+    podman run --rm --net=host --rm ubi8-minimal id && echo On the host I am not root && id
     echo ""
 
     read_bright "--> clear"
