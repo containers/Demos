@@ -206,8 +206,10 @@ podman_images() {
 
 clean_images_and_containers() {
 
-    read_color "podman rm -a"
-    podman rm -a
+    echo
+    echo_color "Time to clean up!"
+    read_color "podman rm -a -f"
+    podman rm -a -f
     echo
     read_color "podman rmi -a -f"
     podman rmi -a -f
