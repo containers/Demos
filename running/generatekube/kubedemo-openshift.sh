@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 trap 'exit 0' INT
 
@@ -28,15 +28,10 @@ setup () {
 	echo "Unable to find the oc commmand"
 	exit 1
     fi
-    sudo systemctl restart crio
-    rc=$?; if [[ $rc != 0 ]]; then
-	echo "Unable to start the crio daemon"
-	exit 1
-    fi
 
-    podman image exists quay.io/sallyom/hello-openshift:test
-    rc=$?; if [[ $rc != 0 ]]; then podman pull quay.io/sallyom/hello-openshift:test; fi
-    podman image exists quay.io/sallyom/hello-openshift:test
+    podman image exists quay.io/sallyom/hello-openshift:latest
+    rc=$?; if [[ $rc != 0 ]]; then podman pull quay.io/sallyom/hello-openshift:latest; fi
+    podman image exists quay.io/sallyom/hello-openshift:latest
     mkdir -p /tmp/hello-openshift-container
 }
 
@@ -47,6 +42,7 @@ cleanPodmanContainers() {
 
 cleanKube() {
     oc delete pod --all
+    oc delete --force --grace-period=0 project hello-openshift
 }
 
 tailContainer () {
@@ -113,7 +109,7 @@ clear
 ##
 sendMessage "Use runlabel create components as containers only"
 sendMessage "Create the hello-openshift container"
-runCommand "podman container runlabel run quay.io/sallyom/hello-openshift:test"
+runCommand "podman container runlabel run quay.io/sallyom/hello-openshift:latest"
 sendMessage "Check the logs to make sure the container is running"
 tailContainer
 
@@ -140,18 +136,24 @@ runPipeCommand "podman generate kube hello" "/tmp/hello-openshift-container/hell
 ##
 sendMessage "Start creating the components in OpenShift"
 sendMessage "Create openshift-hello"
+runCommand "oc new-project hello-openshift"
+
+sendMessage "Create openshift-hello"
 runCommand "oc create -f /tmp/hello-openshift-container/hello.yaml"
 watchPods
 
-sendMessage "Check the IP for the hello pod"
-runCommand "oc describe pod hello"
+sendMessage "Expose the pod/hello to create a service"
+runCommand "oc expose pod/hello"
 
+sendMessage "Expose the service/hello to create a route"
+runCommand "oc expose service/hello"
 
+sendMessage "Check the route/hello was created"
+route=$(oc get route/hello | awk 'END {print $2}')
+runCommand "oc get route/hello"
 
-#IP=`oc describe pod hello | grep "Node:" | cut -f2 --delimiter /`
-#PORT=`oc get svc --no-headers=true demoweb  | awk '{print $5}' | cut -f 2 --delimiter : | sed -e "s/\/TCP//g"`
-
-#sendMessage "Connect web browser to http://$IP:$PORT"
+sendMessage "Curl http://$route"
+runCommand "curl http://$route"
 
 sendMessageWait "Next keystroke cleans up podman containers and OpenShift"
 cleanPodmanContainers
