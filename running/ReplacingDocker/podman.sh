@@ -12,7 +12,7 @@ buildah_image() {
 }
 
 setup() {
-    rpm -q podman buildah audit >/dev/null
+    rpm -q podman audit >/dev/null
     if [[ $? != 0 ]]; then
 	echo $0 requires the podman, buildah and audit packages be installed
 	exit 1
@@ -76,11 +76,11 @@ rootless() {
 userns() {
     echo "
 The demo will now unshare the usernamespace of a rootless container,
-using the 'buildah unshare' command.
+using the 'podman unshare' command.
 
 First outside of the continer, we will cat /etc/subuid, and you should
 see your username.  This indicates the UID map that is assigned to you.
-When executing buildah unshare, it will map your UID to root within the container
+When executing podman unshare, it will map your UID to root within the container
 and then map the range of UIDS in /etc/subuid starting at UID=1 within your container.
 "
     read -p "--> cat /etc/subuid"
@@ -95,8 +95,8 @@ Explore your home directory to see what it looks like while in a user namespace.
 
 Type 'exit' to exit the user namespace and continue running the demo.
 "
-    read -p "--> buildah unshare"
-    buildah unshare
+    read -p "--> podman unshare"
+    podman unshare
     echo ""
 
     read -p "--> clear"
