@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 # security_demo.sh demo script.
 # This script will demonstrate security features of buildah,podman,skopeo and cri-o

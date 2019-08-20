@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 # building_ctr_wo_root.sh demo script.
 # This script will demonstrate how you can use

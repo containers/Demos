@@ -1,3 +1,5 @@
+#!/usr/bin/env sh 
+
 read -p "Using SELinux with container runtimes "
 echo ""
 

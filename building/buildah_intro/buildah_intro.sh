@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 # buildah_intro.sh demo script.
 # This script will demonstrate at an introductory level
@@ -144,7 +144,7 @@ buildah_using_from_scratch() {
     sudo buildah run $newcontainer -- ls -alF /usr/local/bin
 
     /bin/cat > ./runecho.sh <<- "EOF" 
-#!/bin/bash
+#!/usr/bin/env bash
 for i in {1..9};
 do
     echo "This is a new container from buildahdemo [" $i "]"

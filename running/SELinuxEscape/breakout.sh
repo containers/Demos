@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 # breakout.sh demo script.
 # This script will demonstrate a lot of the features of podman, concentrating
