@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 # podman_pause_unpause.sh demo script.
 # This script will demonstrate at an introductory level
