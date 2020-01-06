@@ -1,4 +1,4 @@
-# Demos - podman_cliG
+# Demos - podman_cli
 
 ## Podman Command Demo Scripts
 
