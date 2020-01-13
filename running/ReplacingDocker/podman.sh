@@ -265,7 +265,7 @@ Remove the pod and all of the containers
     clear
 
     echo "
-Pod should no longer exists
+Pod should no longer exist
 "
     read -p "--> sudo podman pod list"
     sudo podman pod list
