@@ -1,0 +1,5 @@
+#ifdef FEDORA
+RUN echo "I am fedora!"
+#else 
+RUN apt-get install -y httpd; apt-get clean
+#endif

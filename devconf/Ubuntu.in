@@ -1,0 +1,4 @@
+#define UBUNTU
+from ubuntu
+#include "dockerfile"
+RUN echo done

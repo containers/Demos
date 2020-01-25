@@ -1,0 +1,4 @@
+#define FEDORA
+from fedora:29
+#include "dockerfile"
+RUN echo done
