@@ -38,8 +38,8 @@ seccomp() {
     read -p "OCI Hooks"
     echo ""
 
-    read -p "--> cat /usr/share/containers/oci/hooks.d/oci-trace-hook-run.json"
-    sudo cat /usr/share/containers/oci/hooks.d/oci-trace-hook-run.json
+    read -p "--> cat /usr/share/containers/oci/hooks.d/oci-seccomp-bpf-hook-run.json"
+    sudo cat /usr/share/containers/oci/hooks.d/oci-seccomp-bpf-hook-run.json
     echo ""
     echo ""
 
