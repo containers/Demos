@@ -8,19 +8,13 @@ reset=$(tput sgr0)
 # This script will demonstrate a new security features of podman
 
 setup() {
-    rpm -q podman audit >/dev/null
+    rpm -q podman audit oci-seccomp-bpf-hook >/dev/null
     if [[ $? != 0 ]]; then
-	echo $0 requires the podman, buildah and audit packages be installed
-	exit 1
-    fi
-    command -v docker > /dev/null
-    if [[ $? != 0 ]]; then
-	echo $0 requires the docker package be installed
+	echo $0 requires the podman, oci-seccomp-bpf-hook and audit packages be installed
 	exit 1
     fi
     sudo augenrules --load > /dev/null
     sudo systemctl restart auditd 2> /dev/null
-    sudo systemctl restart docker
     cat > /tmp/Containerfile <<EOF
 FROM ubi8
 RUN  dnf -y install iputils
@@ -79,9 +73,9 @@ seccomp() {
 Podman Generate Seccomp Rules
 
 This demonstration with use an OCI Hook to fire up a BPF Program to trace
-all sycalls generated from a container.  
+all sycalls generated from a container.
 
-We will then use the generated seccomp file to lock down the container, only 
+We will then use the generated seccomp file to lock down the container, only
 allowing the generated syscalls, rather then the system default.
 "
     echo ""
@@ -91,8 +85,8 @@ allowing the generated syscalls, rather then the system default.
     echo ""
     echo ""
 
-    read -p "--> sudo podman run ${bold}--annotation io.containers.trace-syscall=/tmp/myseccomp.json${reset} fedora ls /"
-    sudo podman run --annotation io.containers.trace-syscall=/tmp/myseccomp.json fedora ls /
+    read -p "--> sudo podman run ${bold}--annotation io.containers.trace-syscall=of:/tmp/myseccomp.json${reset} fedora ls /"
+    sudo podman run --annotation io.containers.trace-syscall=of:/tmp/myseccomp.json fedora ls /
     echo ""
 
     read -p "--> sudo cat /tmp/myseccomp.json | json_pp"
@@ -105,7 +99,7 @@ allowing the generated syscalls, rather then the system default.
     echo ""
     read -p ""
     clear
-    
+
     read -p "--> sudo podman run --security-opt seccomp=/tmp/myseccomp.json fedora ${bold}ls -l /${reset}"
     sudo podman run --security-opt seccomp=/tmp/myseccomp.json fedora ls -l /
     echo ""
@@ -116,15 +110,15 @@ allowing the generated syscalls, rather then the system default.
 
     syscalls
 
-    read -p "--> sudo podman run --annotation io.containers.trace-syscall=/tmp/myseccomp2.json fedora ls -l / > /dev/null"
-    sudo podman run --annotation io.containers.trace-syscall=/tmp/myseccomp2.json fedora ls -l / > /dev/null
+    read -p "--> sudo podman run --annotation io.containers.trace-syscall=\"if:/tmp/myseccomp.json;of:/tmp/myseccomp2.json\" fedora ls -l / > /dev/null"
+    sudo podman run --annotation io.containers.trace-syscall="if:/tmp/myseccomp.json;of:/tmp/myseccomp2.json" fedora ls -l /
     echo ""
 
     read -p "--> sudo podman run ${bold}--security-opt seccomp=/tmp/myseccomp2.json${reset} fedora ls -l /"
     sudo podman run --security-opt seccomp=/tmp/myseccomp2.json fedora ls -l /
     echo ""
 
-    read -p "-->     diff -u /tmp/myseccomp.pp /tmp/myseccomp2.pp"
+    read -p "-->     diff -u /tmp/myseccomp.json /tmp/myseccomp2.json"
     sudo sudo cat /tmp/myseccomp2.json | json_pp > /tmp/myseccomp2.pp
     diff -u /tmp/myseccomp.pp /tmp/myseccomp2.pp | less
     read -p "End Demo"
@@ -137,7 +131,7 @@ containers_conf_ping() {
 This demonstration will show how you can specify the default linux capabilities
 for all containers on your system.
 
-Then of the demonstration will show ping still running without NET_RAW 
+Then of the demonstration will show ping still running without NET_RAW
 Capability, since containers_conf will automatically set the sycall.
 "
 cat > containers.conf <<EOF
@@ -159,7 +153,7 @@ default_capabilities = [
     "SETUID",
 ]
 EOF
-    
+
     # Podman ping inside a container
     read -p "podman run -d fedora sleep 6000"
     echo ""
@@ -270,8 +264,6 @@ ping
 seccomp
 
 containers_conf_ping
-
-buildah_image
 
 userns
 
