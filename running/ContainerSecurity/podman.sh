@@ -8,9 +8,9 @@ reset=$(tput sgr0)
 # This script will demonstrate a new security features of podman
 
 setup() {
-    rpm -q podman audit oci-seccomp-bpf-hook >/dev/null
+    rpm -q podman audit oci-seccomp-bpf-hook perl-JSON-PP >/dev/null
     if [[ $? != 0 ]]; then
-	echo $0 requires the podman, oci-seccomp-bpf-hook and audit packages be installed
+	echo $0 requires the podman, oci-seccomp-bpf-hook, perl-JSON-PP, and audit packages be installed
 	exit 1
     fi
     sudo augenrules --load > /dev/null
@@ -80,8 +80,8 @@ allowing the generated syscalls, rather then the system default.
 "
     echo ""
 
-    read -p "--> less /usr/share/containers/oci/hooks.d/oci-seccomp-bpf-hook-run.json"
-    sudo less /usr/share/containers/oci/hooks.d/oci-seccomp-bpf-hook-run.json
+    read -p "--> less /usr/share/containers/oci/hooks.d/oci-seccomp-bpf-hook.json"
+    sudo less /usr/share/containers/oci/hooks.d/oci-seccomp-bpf-hook.json
     echo ""
     echo ""
 
@@ -90,7 +90,7 @@ allowing the generated syscalls, rather then the system default.
     echo ""
 
     read -p "--> sudo cat /tmp/myseccomp.json | json_pp"
-    sudo sudo cat /tmp/myseccomp.json | json_pp > /tmp/myseccomp.pp
+    sudo cat /tmp/myseccomp.json | json_pp > /tmp/myseccomp.pp
     less /tmp/myseccomp.pp
     echo ""
     clear
@@ -105,7 +105,7 @@ allowing the generated syscalls, rather then the system default.
     echo ""
 
     read -p "--> sudo grep --color SYSCALL=.* /var/log/audit/audit.log"
-    sudo sudo grep --color SYSCALL=.* /var/log/audit/audit.log
+    sudo grep --color SYSCALL=.* /var/log/audit/audit.log
     echo ""
 
     syscalls
@@ -119,7 +119,7 @@ allowing the generated syscalls, rather then the system default.
     echo ""
 
     read -p "-->     diff -u /tmp/myseccomp.json /tmp/myseccomp2.json"
-    sudo sudo cat /tmp/myseccomp2.json | json_pp > /tmp/myseccomp2.pp
+    sudo cat /tmp/myseccomp2.json | json_pp > /tmp/myseccomp2.pp
     diff -u /tmp/myseccomp.pp /tmp/myseccomp2.pp | less
     read -p "End Demo"
     clear
