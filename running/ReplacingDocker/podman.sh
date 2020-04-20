@@ -22,7 +22,7 @@ setup() {
 	echo $0 requires the docker package be installed
 	exit 1
     fi
-    sudo cp /usr/share/doc/audit/rules/10-base-config.rules /etc/audit/rules.d/audit.rules
+    sudo cp /usr/share/audit/sample-rules/10-base-config.rules /etc/audit/rules.d/audit.rules
     sudo augenrules --load > /dev/null
     sudo systemctl restart auditd 2> /dev/null
     sudo systemctl restart docker
