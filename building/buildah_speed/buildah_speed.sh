@@ -35,8 +35,9 @@ setup() {
 	exit 1
     fi
     echo_color "Setting up Demo"
-    sudo dnf -y update --downloadonly 2>/dev/null
+    sudo dnf -y update --downloadonly --setopt=cachedir=/var/cache/dnf/f32 2>/dev/null
     for image in fedora ubi8 quay.io/buildah/stable quay.io/buildah/stable quay.io/buildah/upstream; do sudo podman pull -q $image; done 2>/dev/null
+
     clear
 }
 
@@ -166,7 +167,7 @@ Build a container image with shared read/only containers/storage.
     sudo mkdir -p $MEDIUM
     sudo chcon -t container_file_t $MEDIUM
     read_color "    sudo podman run --device /dev/fuse -ti -v $PWD/Dockerfile:/Dockerfile:Z -v /var/lib/containers/storage:/var/lib/shared:ro -v $MEDIUM:/var/lib/containers quay.io/buildah/stable buildah bud /"
-    sudo /bin/time podman -o /tmp/buildah_medium_bud.txt --format %e run --device /dev/fuse -ti -v $PWD/Dockerfile:/Dockerfile:Z -v /var/lib/containers/storage:/var/lib/shared:ro -v $MEDIUM:/var/lib/containers quay.io/buildah/stable buildah bud /
+    sudo /bin/time -o /tmp/buildah_medium_bud.txt --format %e podman run --device /dev/fuse -ti -v $PWD/Dockerfile:/Dockerfile:Z -v /var/lib/containers/storage:/var/lib/shared:ro -v $MEDIUM:/var/lib/containers quay.io/buildah/stable buildah bud /
 
     echo_color "
     Completed in $(cat /tmp/buildah_medium_bud.txt) seconds
@@ -190,8 +191,8 @@ Build a container image with shared read/only containers/storage with overlay mo
     sudo rm -rf $MEDIUM
     sudo mkdir -p $MEDIUM
     sudo chcon -t container_file_t $MEDIUM
-    read_color "    sudo podman run --device /dev/fuse -ti -v $PWD/Dockerfile:/Dockerfile:Z -v /var/lib/containers/storage:/var/lib/shared:ro -v $MEDIUM:/var/lib/containers quay.io/buildah/upstream buildah bud /"
-    sudo /bin/time -o /tmp/buildah_medium_bud_with_overlay.txt --format "%e" podman run --device /dev/fuse -ti -v $PWD/Dockerfile:/Dockerfile:Z -v /var/lib/containers/storage:/var/lib/shared:ro -v $MEDIUM:/var/lib/containers quay.io/buildah/upstream buildah bud /
+    read_color "    sudo podman run --device /dev/fuse -ti -v /var/cache/dnf/f32:/var/cache/dnf:ro -v $PWD/Dockerfile:/Dockerfile:Z -v /var/lib/containers/storage:/var/lib/shared:ro -v $MEDIUM:/var/lib/containers quay.io/buildah/upstream buildah bud -v /var/cache/dnf:/var/cache/dnf:O /"
+    sudo /bin/time -o /tmp/buildah_medium_bud_with_overlay.txt --format "%e" podman run -v /var/cache/dnf/f32:/var/cache/dnf:ro --device /dev/fuse -ti -v $PWD/Dockerfile:/Dockerfile:Z -v /var/lib/containers/storage:/var/lib/shared:ro -v $MEDIUM:/var/lib/containers quay.io/buildah/upstream buildah bud -v /var/cache/dnf:/var/cache/dnf:O /
 
     echo_color "
     Completed in $(cat /tmp/buildah_medium_bud_with_overlay.txt) seconds
@@ -211,7 +212,7 @@ speed_table() {
     printf "    _______________________________________\n"
     printf "    | %-10s | %-10s| %-10s |\n" "Slowest" "Medium" "Fastest"
     printf "    | ---------- | --------- | ---------- |\n"
-    printf "    | %-10s | %-10s| %-10s |\n" $(cat /tmp/buildah_slowest.txt) $(cat /tmp/buildah_medium.txt) $(cat /tmp/buildah_fastest.txt) 
+    printf "    | %-10s | %-10s| %-10s |\n" $(cat /tmp/buildah_slowest.txt) $(cat /tmp/buildah_medium.txt) $(cat /tmp/buildah_fastest.txt)
     printf "    |_____________________________________|\n"
     echo
     echo
@@ -241,7 +242,7 @@ echo
 
 buildah_medium_bud
 
-# buildah_medium_bud_with_overlay
+buildah_medium_bud_with_overlay
 
 # clean_images_and_containers
 
