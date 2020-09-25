@@ -7,6 +7,16 @@ reset=$(tput sgr0)
 
 # podmah.sh demo script.
 
+user=$(id -u)
+if [ $user != 0 ]; then
+    read -p "
+${bold}${yellow} podman.sh demo must be run as root
+
+"
+    reset
+    exit 1
+fi
+
 read -p "${bold}${yellow}This script will demonstrate new security features of podman${reset}"
 echo ""
 clear
@@ -87,8 +97,8 @@ capabilities_in_image() {
     read -p "${bold}--> podman top capctr capeff${reset}"
     podman top capctr capeff
     echo ""
-    read -p "${bold}--> podman run --name defctr -d fedora sleep 1000${reset}"
-    podman run --name defctr -d fedora sleep 1000
+    read -p "${bold}--> podman run --name defctr -d registry.fedoraproject.org/fedora sleep 1000${reset}"
+    podman run --name defctr -d registry.fedoraproject.org/fedora sleep 1000
     echo ""
     read -p "${bold}--> podman top defctr capeff${reset}"
     podman top defctr capeff
@@ -109,6 +119,7 @@ capabilities_in_image() {
     podman top -l capeff
     echo ""
     read -p "${bold}--> cleanup${reset}"
+    podman stop -a -t 0
     podman rm -af
     read -p "${bold}--> clear${reset}"
     clear
@@ -116,6 +127,8 @@ capabilities_in_image() {
 
 
 udica_demo() {
+    podman stop -a -t 0
+    podman rm -af 2> /dev/null
     read -p "${bold}${blue}Podman run with volumes using udica${reset}"
     # check /home, /var/spool, and the network nc -lvp (port)
     read -p "${bold}--> podman run --rm -v /home:/home:ro -v /var/spool:/var/spool:rw -it myfedora bash${reset}"
@@ -133,7 +146,7 @@ udica_demo() {
     podman inspect myctr | udica my_container
     echo ""
     read -p "${bold}--> semodule -i my_container.cil /usr/share/udica/templates/{base_container.cil,net_container.cil,home_container.cil}${reset}"
-    semodule -i my_container.cil /usr/share/udica/templates/{base_container.cil,net_container.cil,home_container.cil}
+#    semodule -i my_container.cil /usr/share/udica/templates/{base_container.cil,net_container.cil,home_container.cil}
     echo ""
     read -p "${blue}${bold}Let's restart the container${reset}"
     echo ""
@@ -141,13 +154,15 @@ udica_demo() {
     echo ""
     podman run --name udica_ctr --security-opt label=type:my_container.process -v /home:/home:ro -v /var/spool:/var/spool:rw -d myfedora sleep 1000
     echo ""
-    read -p "${bold}--> ps -efZ | grep my_container.process${reset}"
-    ps -efZ | grep my_container.process
+    read -p "${bold}--> podman top -l label"
+    podman top -l label |  grep -a --color=auto -B 1 my_container.process
+
     echo ""
     read -p "${bold}--> podman exec -it udica_ctr bash${reset}"
     podman exec -it udica_ctr bash
     echo ""
     read -p "${bold}--> cleanup${reset}"
+    podman stop -a -t 0
     podman rm -af 2> /dev/null
     echo ""
     read -p "${bold}--> clear${reset}"
@@ -183,7 +198,7 @@ allowing the generated syscalls, rather then the system default.${reset}
     echo ""
 
     read -p "${bold}--> podman run ${yellow}--annotation io.containers.trace-syscall=of:/tmp/myseccomp.json${reset}${bold} fedora ${yellow}ls /${reset}"
-    podman run --rm --annotation io.containers.trace-syscall=of:/tmp/myseccomp.json fedora ls /
+    podman run --rm --annotation io.containers.trace-syscall=of:/tmp/myseccomp.json --pull=missing registry.fedoraproject.org/fedora ls /
     echo ""
 
     read -p "${bold}--> cat /tmp/myseccomp.json | json_pp${reset}"
@@ -192,13 +207,13 @@ allowing the generated syscalls, rather then the system default.${reset}
     echo ""
     clear
     read -p "${bold}--> podman run ${yellow}--security-opt seccomp=/tmp/myseccomp.json${reset}${bold} fedora ${yellow}ls /${reset}"
-    podman run --rm --security-opt seccomp=/tmp/myseccomp.json fedora ls /
+    podman run --rm --security-opt seccomp=/tmp/myseccomp.json --pull=never registry.fedoraproject.org/fedora ls /
     echo ""
     read -p "${bold}--> clear${reset}"
     clear
 
     read -p "${bold}--> podman run --security-opt seccomp=/tmp/myseccomp.json fedora ${yellow}ls -l /${reset}"
-    podman run --rm --security-opt seccomp=/tmp/myseccomp.json fedora ls -l /
+    podman run --rm --security-opt seccomp=/tmp/myseccomp.json --pull=never registry.fedoraproject.org/fedora ls -l /
     echo ""
 
     read -p "${bold}--> grep --color SYSCALL=.* /var/log/audit/audit.log${reset}"
@@ -208,11 +223,11 @@ allowing the generated syscalls, rather then the system default.${reset}
     syscalls
 
     read -p "${bold}--> podman run --annotation io.containers.trace-syscall=\"if:/tmp/myseccomp.json;of:/tmp/myseccomp2.json\" fedora ls -l / > /dev/null${reset}"
-    podman run --rm --annotation io.containers.trace-syscall="if:/tmp/myseccomp.json;of:/tmp/myseccomp2.json" fedora ls -l /
+    podman run --rm --annotation io.containers.trace-syscall="if:/tmp/myseccomp.json;of:/tmp/myseccomp2.json" --pull=never registry.fedoraproject.org/fedora ls -l /
     echo ""
 
     read -p "${bold}--> podman run --security-opt seccomp=/tmp/myseccomp2.json fedora ls -l /${reset}"
-    podman run --rm --security-opt seccomp=/tmp/myseccomp2.json fedora ls -l /
+    podman run --rm --security-opt seccomp=/tmp/myseccomp2.json --pull=never registry.fedoraproject.org/fedora ls -l /
     echo ""
 
     read -p "${bold}--> diff -u /tmp/myseccomp.json /tmp/myseccomp2.json${reset}"
@@ -254,7 +269,7 @@ EOF
     # Podman ping inside a container
     read -p "${bold}--> podman run -d fedora sleep 6000${reset}"
     echo ""
-    podman run -d fedora sleep 6000
+    podman run -d --pull=never registry.fedoraproject.org/fedora sleep 6000
     echo ""
 
     # Podman ping inside a container
@@ -272,13 +287,13 @@ EOF
     # Podman ping inside a container
     read -p "${bold}--> CONTAINERS_CONF=containers.conf podman run -d fedora sleep 6000${reset}"
     echo ""
-    CONTAINERS_CONF=containers.conf podman run -d fedora sleep 6000
+    CONTAINERS_CONF=containers.conf podman run -d --pull=never registry.fedoraproject.org/fedora sleep 6000
     echo ""
 
     # Podman ping inside a container
-    read -p "${bold}--> CONTAINERS_CONF=containers.conf podman top -l capeff${reset}"
+    read -p "${bold}--> podman top -l capeff${reset}"
     echo ""
-    CONTAINERS_CONF=containers.conf podman top -l capeff
+    podman top -l capeff
     echo ""
 
     # Podman inside a container
@@ -301,7 +316,7 @@ default_sysctls = [
 ]
 
 EOF
-
+	
     # Podman ping inside a container
     read -p "${blue}${bold}
 Let's add the ${yellow}net.ipv4.ping_group syscall${reset}${blue}${bold} to the containers.conf${reset}"
@@ -319,7 +334,7 @@ Let's add the ${yellow}net.ipv4.ping_group syscall${reset}${blue}${bold} to the 
     read -p "${bold}--> clear${reset}"
     clear
 }
-CONTAINERS_CONF=containers.conf
+
 userns() {
     # Note, this is still a WIP and has not yet been merged into podman master
     # Podman user namespace
@@ -327,27 +342,27 @@ userns() {
     echo ""
 
     read -p "${bold}--> podman run --uidmap 0:100000:5000 -d fedora sleep 1000${reset}"
-    podman run --net=host --uidmap 0:100000:5000 -d fedora sleep 1000
+    podman run --net=host --uidmap 0:100000:5000 -d --pull=never registry.fedoraproject.org/fedora sleep 1000
     echo ""
 
     read -p "${bold}--> podman top --latest user huser | grep --color=auto -B 1 100000${reset}"
     podman top --latest user huser | grep --color=auto -B 1 100000
     echo ""
 
-    read -p "${bold}--> ps -ef | grep -v grep | grep --color=auto 100000${reset}"
-    ps -ef | grep -v grep | grep --color=auto 100000
+    read -p "${bold}--> ps -ef | grep -v grep | grep --color=auto 100000.*sleep${reset}"
+    ps -ef | grep -v grep | grep --color=auto 100000.*sleep
     echo ""
 
     read -p "${bold}--> podman run --uidmap 0:200000:5000 -d fedora sleep 1000${reset}"
-    podman run --net=host --uidmap 0:200000:5000 -d fedora sleep 1000
+    podman run --net=host --uidmap 0:200000:5000 -d --pull=never registry.fedoraproject.org/fedora sleep 1000
     echo ""
 
     read -p "${bold}--> podman top --latest user huser | grep --color=auto -B 1 200000${reset}"
     podman top --latest user huser | grep --color=auto -B 1 200000
     echo ""
 
-    read -p "${bold}--> ps -ef | grep -v grep | grep --color=auto 200000${reset}"
-    ps -ef | grep -v grep | grep --color=auto 200000
+    read -p "${bold}--> ps -ef | grep -v grep | grep --color=auto 200000.*sleep${reset}"
+    ps -ef | grep -v grep | grep --color=auto 200000.*sleep
     echo ""
 
     read -p "${bold}--> clear${reset}"
@@ -357,35 +372,36 @@ userns() {
     echo ""
 
     read -p "${bold}--> podman run --userns=auto -d fedora sleep 1000${reset}"
-    ./bin/podman run --userns=auto -d fedora sleep 1000
+    podman run --userns=auto -d --pull=never registry.fedoraproject.org/fedora sleep 1000
     echo ""
 
     read -p "${bold}--> podman top --latest user huser${reset}"
-    ./bin/podman top --latest user huser
+    podman top --latest user huser | grep --color=auto -B 1 [0-9].*
     echo ""
 
     read -p "${bold}--> podman run --userns=auto -d fedora sleep 1000${reset}"
-    ./bin/podman run --userns=auto -d fedora sleep 1000
+    podman run --userns=auto -d --pull=never registry.fedoraproject.org/fedora sleep 1000
     echo ""
 
     read -p "${bold}--> podman top --latest user huser${reset}"
-    ./bin/podman top --latest user huser
+    podman top --latest user huser | grep --color=auto -B 1 [0-9].*
     echo ""
 
     read -p "${bold}--> podman run --userns=auto:size=5000 -d fedora sleep 1000${reset}"
-    ./bin/podman run --userns=auto:size=5000 -d fedora sleep 1000
+    podman run --userns=auto:size=5000 -d --pull=never registry.fedoraproject.org/fedora sleep 1000
     echo ""
 
     read -p "${bold}--> podman top --latest user huser${reset}"
-    ./bin/podman top --latest user huser
+    podman top --latest user huser | grep --color=auto -B 1 [0-9].*
     echo ""
 
     read -p "${bold}--> podman exec --latest cat /proc/self/uid_map${reset}"
-    ./bin/podman exec --latest cat /proc/self/uid_map
+    podman exec --latest cat /proc/self/uid_map
     echo ""
 
     read -p "${bold}--> cleanup${reset}"
-    ./bin/podman rm -af
+    podman stop -a -t 0
+    podman rm -af
     echo ""
 
     read -p "${bold}--> clear${reset}"
