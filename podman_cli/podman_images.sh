@@ -21,8 +21,8 @@ echo_color() {
 }
 
 setup() {
-    rpm -q podman >/dev/null
-    if [[ $? != 0 ]]; then
+    type podman >/dev/null
+    if [ $? != 0 ]; then
 	echo $0 requires the podman package to be installed
 	exit 1
     fi
