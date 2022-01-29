@@ -21,7 +21,7 @@ echo_color() {
 }
 
 setup() {
-    type podman >/dev/null
+    command -v podman >/dev/null
     if [ $? != 0 ]; then
 	echo $0 requires the podman package to be installed
 	exit 1
