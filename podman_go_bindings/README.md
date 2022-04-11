@@ -23,12 +23,18 @@ $ git clone https://github.com/containers/Demos.git
 $ cd Demos/podman_go_bindings
 ```
 
-1. Ensure podman.socket is activated
+1. Download the [required packages](https://podman.io/getting-started/installation#build-and-run-dependencies) to build from source.
+
+2. Ensure podman.socket is activated
 ```bash
 systemctl --user start podman.socket
 ```
 
-2. Run the application
+3. Run the application
 ```bash
 $ go run main.go
 ```
+
+### More Information
+
+Please see the [`README`](https://github.com/containers/podman/tree/main/pkg/bindings#podman-golang-bindings) in the Podman bindings package for more documentation.

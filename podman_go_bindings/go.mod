@@ -1,5 +1,5 @@
 module github.com/containers/Demos/podman_go_bindings
 
-go 1.14
+go 1.17
 
-require github.com/containers/libpod/v2 v2.0.4 // indirect
+require github.com/containers/podman/v4 v4.0.3
