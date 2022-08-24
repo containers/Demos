@@ -36,6 +36,7 @@ cmd() {
 
 trap cleanup EXIT
 podman_generate_systemd() {
+    clear
     read_yellow  "Let's create a systemd service to run a container image"
     echo ""
 
@@ -43,6 +44,8 @@ podman_generate_systemd() {
     podman run -ti ubi8-init
     echo ""
 
+    cmd clear
+    
     cmd podman generate systemd --help
 
     read_yellow "Now I will create a container running top"
@@ -54,8 +57,12 @@ podman_generate_systemd() {
     podman generate systemd --name topservice > ~/.config/systemd/user/sometop.service
     echo ""
 
+    cmd clear
+    
     cmd less ~/.config/systemd/user/sometop.service
 
+    clear
+    
     cmd systemctl --user daemon-reload
 
     cmd podman ps

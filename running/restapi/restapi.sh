@@ -74,14 +74,13 @@ restapi() {
     $cmd  | grep -E --color "number.*|"
     echo ""
 
-    cmd="sudo DOCKER_HOST=unix:///var/run/podman/podman.sock docker run ubi8-micro printenv"
+    cmd="sudo DOCKER_HOST=unix:///var/run/podman/podman.sock docker run registry.access.redhat.com/ubi8-micro printenv"
     read_bright "--> $cmd"
     $cmd | grep -E --color "container=podman|"
     echo ""
 
     read_bright "Demo Complete"
 
-    read_bright "--> clear"
     clear
 }
 compose() {
@@ -103,7 +102,7 @@ compose() {
     read_bright "--> $cmd"
     $cmd | grep -E --color "/run.*sock|"
 
-    cmd="DOCKER_HOST=unix:///run/user/3267/podman/podman.sock docker run ubi8-micro printenv"
+    cmd="DOCKER_HOST=unix:///run/user/3267/podman/podman.sock docker run registry.access.redhat.com/ubi8-micro printenv"
     read_bright "--> $cmd"
     eval $cmd | grep -E --color "container=podman|"
 

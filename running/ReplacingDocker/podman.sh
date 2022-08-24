@@ -4,13 +4,6 @@
 # This script will demonstrate a lot of the features of podman, concentrating
 # on the security features.
 
-buildah_image() {
-    sudo podman images  | grep -q -w buildah-ctr
-    if [[ $? != 0 ]]; then
-	sudo podman build -t buildah-ctr -f Dockerfile.buildah .
-    fi
-}
-
 setup() {
     rpm -q podman audit >/dev/null
     if [[ $? != 0 ]]; then
@@ -219,12 +212,12 @@ pods() {
     sudo podman pod create --name podtest
     echo ""
 
-    read -p "--> sudo podman pod create --pod podtest -d fedora sleep 600"
-    sudo podman create --pod podtest -d fedora sleep 600
+    read -p "--> sudo podman create --pod podtest fedora sleep 600"
+    sudo podman create --pod podtest fedora sleep 600
     echo ""
 
-    read -p "--> sudo podman pod create --pod podtest -d fedora sleep 600"
-    sudo podman create --pod podtest -d fedora sleep 600
+    read -p "--> sudo podman create --pod podtest fedora sleep 600"
+    sudo podman create --pod podtest fedora sleep 600
     echo ""
 
     echo "
@@ -239,7 +232,7 @@ Notice that you have no containers running.
     echo ""
 
     echo "
-Notice that the `podman pod start podtest` command started both containers.
+Notice that the \"podman pod start podtest\" command started both containers.
 "
     read -p "--> sudo podman ps"
     sudo podman ps
@@ -250,7 +243,7 @@ Notice that the `podman pod start podtest` command started both containers.
     echo ""
 
     echo "
-Notice that the `podman pod pod stop podtest` command stopped both containers.
+Notice that the \"podman pod stop podtest\" command stopped both containers.
 "
     read -p "--> sudo podman ps"
     sudo podman ps
@@ -289,16 +282,17 @@ _EOF
     cat $PWD/myvol/Dockerfile
     echo ""
     echo ""
-    read -p "--> sudo podman run -v \$PWD/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs bud -t myimage --isolation chroot /myvol"
-    sudo podman run --net=host -v $PWD/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs bud -t myimage --isolation chroot /myvol
+    read -p "--> sudo podman run -v \$PWD/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z quay.io/buildah/stable buildah build -t myimage --isolation chroot /myvol"
+
+    sudo podman run --net=host --device /dev/fuse -v $PWD/myvol:/myvol:Z -v /var/lib/mycontainer:/var/lib/containers:Z quay.io/buildah/stable buildah build -t myimage --isolation chroot /myvol
     echo ""
 
-    read -p "--> sudo podman run -v /var/lib/mycontainer:/var/lib/containers:Z	buildah-ctr --storage-driver vfs images"
-    sudo podman run --net=host -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs images
+    read -p "--> sudo podman run --device /dev/fuse -v /var/lib/mycontainer:/var/lib/containers:Z quay.io/buildah/stable buildah images"
+    sudo podman run --net=host -v /var/lib/mycontainer:/var/lib/containers:Z quay.io/buildah/stable buildah images
     echo ""
 
-    read -p "--> sudo podman run -v /var/lib/mycontainer:/var/lib/containers:Z	buildah-ctr --storage-driver vfs rmi --force --all"
-    sudo podman run --net=host -v /var/lib/mycontainer:/var/lib/containers:Z buildah-ctr --storage-driver vfs rmi -f --all
+    read -p "--> sudo podman run -v /var/lib/mycontainer:/var/lib/containers:Z	quay.io/buildah/stable buildah rmi --force --all"
+    sudo podman run --net=host -v /var/lib/mycontainer:/var/lib/containers:Z quay.io/buildah/stable buildah rmi -f --all
     echo ""
 
     read -p "--> cleanup"
@@ -316,8 +310,6 @@ intro() {
 }
 
 setup
-
-buildah_image
 
 intro
 
