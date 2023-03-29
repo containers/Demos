@@ -68,7 +68,7 @@ require (
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20220114050600-8b9d41f48198 // indirect
-	github.com/opencontainers/runc v1.1.3 // indirect
+	github.com/opencontainers/runc v1.1.5 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20211214071223-8958f93039ab // indirect
 	github.com/opencontainers/runtime-tools v0.9.1-0.20220714195903-17b3287fafb7 // indirect
 	github.com/opencontainers/selinux v1.10.1 // indirect
