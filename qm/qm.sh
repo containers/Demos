@@ -38,8 +38,8 @@ install() {
 
 setup() {
     echo_color "Executing setup"
-    echo_color "Enable hirte on the host system"
-    exec_color "sudo systemctl start hirte hirte-agent"
+    echo_color "Enable bluechi on the host system"
+    exec_color "sudo systemctl start bluechi bluechi-agent"
     echo
     echo_color "Install and setup /usr/lib/qm/rootfs"
     exec_color "sudo /usr/share/qm/setup"
@@ -84,9 +84,9 @@ podman() {
     exec_color "sudo podman exec -ti qm sh"
 }
 
-hirte() {
+bluechi() {
     clear
-    exec_color "sudo hirtectl list-units | grep --color running"
+    exec_color "sudo bluechictl list-units | grep --color running"
     exec_color "sudo podman exec -ti qm podman pull ubi8/httpd-24"
     rootfs=/usr/lib/qm/rootfs
     exec_color "echo \"[Container]
@@ -96,18 +96,18 @@ Network=host
 
     exec_color "sudo podman cp /tmp/myquadlet.container qm:/etc/containers/systemd/"
     exec_color "sudo podman exec qm systemctl daemon-reload"
-    exec_color "sudo hirtectl restart qm.fedora myquadlet.service"
-    exec_color "sudo hirtectl list-units | grep --color myquadlet"
+    exec_color "sudo bluechictl restart qm.fedora myquadlet.service"
+    exec_color "sudo bluechictl list-units | grep --color myquadlet"
     exec_color "curl 127.0.0.1:8080"
-    exec_color "sudo hirtectl stop qm.fedora myquadlet.service"
-    exec_color "sudo hirtectl list-units | grep --color myquadlet"
+    exec_color "sudo bluechictl stop qm.fedora myquadlet.service"
+    exec_color "sudo bluechictl list-units | grep --color myquadlet"
 }
 
-#init
+init
 
-#install
+install
 
-#setup
+setup
 
 status
 
@@ -115,7 +115,7 @@ cpuweight
 
 podman
 
-hirte
+bluechi
 
 echo done
 read

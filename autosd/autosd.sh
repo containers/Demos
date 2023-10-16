@@ -59,7 +59,7 @@ status() {
 
 podman() {
     clear
-    exec_color "podman run --device /dev/fuse --replace --cap-add=all --network=host --name autosd --security-opt label=disable -d  quay.io/centos-sig-automotive/autosd:latest"
+    exec_color "podman run --device /dev/fuse --replace --cap-add=all --name autosd --security-opt label=disable -d  quay.io/centos-sig-automotive/autosd:latest"
     exec_color "podman exec -ti autosd bash"
     exec_color "echo \"
 [Container]
