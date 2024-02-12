@@ -1,0 +1,12 @@
+#FROM registry-proxy.engineering.redhat.com/rh-osbs/rhel9-rhel_bootc:latest
+#ADD rhel9.repo /etc/yum.repos.d/
+FROM quay.io/centos-bootc/fedora-bootc:eln
+RUN dnf -y update; dnf install -y httpd mariadb mariadb-server php-fpm php-mysqlnd vim-enhanced && dnf clean all
+ADD var var
+RUN systemctl enable httpd mariadb php-fpm
+
+# The following steps should be done in the bootc image.
+CMD [ "/sbin/init" ]
+STOPSIGNAL SIGRTMIN+3
+RUN rpm --setcaps shadow-utils
+

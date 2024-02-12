@@ -1,0 +1,4 @@
+FROM quay.io/fedora/fedora-coreos:testing
+
+RUN rpm-ostree install dnf; dnf -y remove moby-engine; dnf clean all
+

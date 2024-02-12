@@ -22,16 +22,71 @@ echo_color() {
     echo "${cyan}$1${reset}"
 }
 
-IMAGE=quay.io/rhatdan/podman-machine
+
+DEFAULT_APP="lamp"
+DEFAULT_IMAGE="quay.io/rhatdan/$DEFAULT_APP"
+DEFAULT_TYPE="qcow2"
+DEFAULT_ARCH=$(uname -m)
+DEFAULT_VARIANT=""
+DEFAULT_OS=$(uname)
+DEFAULT_OS=${OS,,}
+
+
+OPTSTRING=":a:i:o:v:A:"
+
+while getopts ${OPTSTRING} opt; do
+  case ${opt} in
+    i)
+      IMAGE="${OPTARG}"
+      ;;
+    a)
+      ARCH="${OPTARG}"
+      ;;
+    A)
+      APP="${OPTARG}"
+      ;;
+    o)
+      OS="${OPTARG}"
+      ;;
+    v)
+      VARIANT="--variant ${OPTARG}"
+      ;;
+    ?)
+      echo "Invalid option: -${OPTARG}."
+      exit 1
+      ;;
+  esac
+done
+
+[ -n "$IMAGE" ] || IMAGE=$DEFAULT_IMAGE
+[ -n "$APP" ] || APP=$DEFAULT_APP
+[ -n "$TYPE" ] || TYPE=$DEFAULT_TYPE
+[ -n "$ARCH" ] || ARCH=$DEFAULT_ARCH
+VARIANT=$VARIANT
+[ -n "$OS" ] || OS=$DEFAULT_OS
+
 clear
-exec_color "podman login quay.io"
-exec_color "cat machine/Containerfile.fcos"
-exec_color "podman build -t fcos -f machine/Containerfile.fcos machine/"
-exec_color "cat machine/Containerfile"
-exec_color "podman build --from fcos -t $IMAGE machine/"
-exec_color "podman run --rm -ti $IMAGE sh"
+exec_color "podman login $IMAGE"
+if [ $APP == "machine" ]; then
+   podman rmi --force --ignore localhost/fcos
+   exec_color "cat $APP/Containerfile.fcos"
+   exec_color "podman build --arch ${ARCH} --manifest localhost/fcos -f $APP/Containerfile.fcos $APP/"
+   FROM="--from localhost/fcos"
+fi
+exec_color "cat $APP/Containerfile"
+exec_color "podman manifest rm ${IMAGE}"
+exec_color "podman build --arch=${ARCH} $FROM --manifest ${IMAGE} $APP/"
+exec_color "podman run --pull=never --arch=${ARCH} --rm -ti ${IMAGE} sh"
 clear
-exec_color "podman push $IMAGE"
-exec_color "sudo podman run --rm -it --privileged -v .:/output --pull newer quay.io/centos-bootc/bootc-image-builder --type qcow2 $IMAGE:latest"
-exec_color "sudo chown -R $UID:$UID qcow2"
-exec_color "mv qcow2/disk.qcow2 qcow2/$(basename $IMAGE).qcow2"
+exec_color "podman manifest push --all ${IMAGE}"
+exec_color "sudo REGISTRY_AUTH_FILE=$XDG_RUNTIME_DIR/containers/auth.json podman run --rm -it --platform=${OS}/${ARCH} --privileged -v .:/output --pull newer quay.io/centos-bootc/bootc-image-builder --type ami --type qcow2 ${IMAGE}:latest"
+exec_color "sudo chown -R $UID:$UID ."
+exec_color "mv ${TYPE}/disk.${TYPE} ${TYPE}/$(basename ${IMAGE}).${TYPE}"
+exec_color "podman manifest add ${VARIANT} --os ${OS} --arch=${ARCH} --artifact --artifact-type application/x-qemu-disk --annotation disktype=${TYPE} ${IMAGE} ${TYPE}/$(basename ${IMAGE}).${TYPE}"
+TYPE=ami
+exec_color "sudo podman run --rm -it --platform=${OS}/${ARCH} --privileged -v .:/output --pull newer quay.io/centos-bootc/bootc-image-builder --type ${TYPE} ${IMAGE}:latest"
+exec_color "sudo chown -R $UID:$UID ."
+exec_color "mv ${TYPE}/disk.${TYPE} ${TYPE}/$(basename ${IMAGE}).${TYPE}"
+exec_color "podman manifest add ${VARIANT} --os ${OS} --arch=${ARCH} --artifact --artifact-type application/x-qemu-disk --annotation disktype=${TYPE} ${IMAGE} ${TYPE}/$(basename ${IMAGE}).${TYPE}"
+exec_color "podman manifest push --all ${IMAGE}"
+exec_color "skopeo inspect --raw ${IMAGE}"
