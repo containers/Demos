@@ -22,16 +22,49 @@ echo_color() {
     echo "${cyan}$1${reset}"
 }
 
-IMAGE=quay.io/rhatdan/podman-machine
+
+IMAGE="quay.io/rhatdan/podman-machine"
+TYPE="qcow2"
+ARCH="$(uname -m)"
+VARIANT=""
+OS=$(uname)
+OS=${OS,,}
+
+
+OPTSTRING=":a:i:o:v:"
+
+while getopts ${OPTSTRING} opt; do
+  case ${opt} in
+    i)
+      IMAGE="${OPTARG}"
+      ;;
+    a)
+      ARCH="${OPTARG}"
+      ;;
+    o)
+      OS="${OPTARG}"
+      ;;
+    v)
+      VARIANT="--variant ${OPTARG}"
+      ;;
+    ?)
+      echo "Invalid option: -${OPTARG}."
+      exit 1
+      ;;
+  esac
+done
+
 clear
 exec_color "podman login quay.io"
 exec_color "cat machine/Containerfile.fcos"
-exec_color "podman build -t fcos -f machine/Containerfile.fcos machine/"
+exec_color "podman build --arch ${ARCH} -t localhost/fcos -f machine/Containerfile.fcos machine/"
 exec_color "cat machine/Containerfile"
-exec_color "podman build --from fcos -t $IMAGE machine/"
-exec_color "podman run --rm -ti $IMAGE sh"
+exec_color "podman build --arch=${ARCH} --from localhost/fcos -t ${IMAGE} machine/"
+exec_color "podman run --arch=${ARCH} --rm -ti ${IMAGE} sh"
 clear
-exec_color "podman push $IMAGE"
-exec_color "sudo podman run --rm -it --privileged -v .:/output --pull newer quay.io/centos-bootc/bootc-image-builder --type qcow2 $IMAGE:latest"
-exec_color "sudo chown -R $UID:$UID qcow2"
-exec_color "mv qcow2/disk.qcow2 qcow2/$(basename $IMAGE).qcow2"
+exec_color "podman push ${IMAGE}"
+exec_color "sudo podman run --rm -it --platform=${ARCH} --privileged -v .:/output --pull newer quay.io/centos-bootc/bootc-image-builder--type ${TYPE} ${IMAGE}:latest"
+exec_color "sudo chown -R $UID:$UID ${TYPE}"
+exec_color "mv ${TYPE}/disk.${TYPE} ${TYPE}/$(basename ${IMAGE}).${TYPE}"
+exec_color "podman manifest add ${VARIANT} --os ${OS} --arch=${ARCH} --artifact ${IMAGE} --artifact-type application/x-qemu-disk --annotation disktype=${TYPE} ${TYPE}/$(basename ${IMAGE}).${TYPE}"
+exec_color "podman manifest push --all ${IMAGE}"
