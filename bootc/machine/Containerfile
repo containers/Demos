@@ -1,4 +1,4 @@
-FROM quay.io/centos-bootc/fedora-bootc:eln
+FROM quay.io/centos-bootc/centos-bootc:stream9
 
 RUN dnf -y update && \
     dnf -y install podman subscription-manager crun\* chrony && \
@@ -12,10 +12,19 @@ ADD etc etc
 RUN systemctl enable rhsmcertd.service podman.socket
 
 RUN groupadd -g 501 core; useradd -u 501 -g 501 core
-RUN passwd root --stdin <<< "podman5.0"
 USER core
 RUN systemctl --user enable podman.socket
 USER root
+
+# The following configures root user access.
+# Add ssh public keys to /user/etc-system/root.keys as is done below,
+# or, to give root user access via password "secure" (not recommended), uncomment the 2 lines below
+#RUN echo "root:secure" | chpasswd
+#
+#Substitute YOUR public key for the below-private key holder for the following public key will have root access
+RUN mkdir /usr/etc-system && \
+    echo 'AuthorizedKeysFile /usr/etc-system/%u.keys' >> /etc/ssh/sshd_config.d/30-auth-system.conf && \
+    echo 'ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA2vfgIjZRMlDQ0ck5ub8S2sfgG1HTML3Y8lsA3yOz/UsVJY/vxnDVrLLZPNk3hLSAVP+W9+j+pF1XsnjQ6aVbrsSxuGkFQvJoZeK3EjZ0A55lqEvJPG9+IUi7rqHBh5yU/ZX9fQ6KkvmB2ECGR1CqOR1uednPJJ/7fHeTElycgOGlYT6hafuo5RV6O3GITA4VAKZdIE+0+N37p0Yej+vIVYG4iRZ7Jgk+ZnZlwyi8IG06CJfuGwpAw76c/rvI6GYYueFwfGjUxo474ReNn53GyBGnM9NtoBdWGFSiPeET7056kfV4TSNDMB24js8lrho3TqE3wl+szkBeKU3oAZ9okQ== dwalsh@localhost.localdomain' > /usr/etc-system/root.keys && chmod 0600 /usr/etc-system/root.keys
 
 # The following steps should be done in the bootc image.
 CMD [ "/sbin/init" ]
