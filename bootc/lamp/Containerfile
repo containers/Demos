@@ -1,11 +1,11 @@
-#FROM registry-proxy.engineering.redhat.com/rh-osbs/rhel9-rhel_bootc:latest
-#ADD rhel9.repo /etc/yum.repos.d/
-#RUN dnf -y update; dnf install -y httpd mariadb mariadb-server php-fpm php-mys
+# FROM registry-proxy.engineering.redhat.com/rh-osbs/rhel9-rhel_bootc:latest
+# ADD rhel9.repo /etc/yum.repos.d/
 # RUN dnf module enable -y php:8.2 nginx:1.22
 FROM quay.io/centos-bootc/centos-bootc:stream9
 RUN dnf -y update; dnf install -y httpd mariadb mariadb-server php-fpm php-mysqlnd && dnf clean all && rm -rf /var/cache /var/log/dnf
 ADD var var
-RUN systemctl enable httpd mariadb php-fpm
+#RUN systemctl enable httpd mariadb php-fpm
+EXPOSE 80
 
 #Substitute YOUR public key for the below-private key holder for the following public key will have root access
 # podman build --build-arg="SSHPUBKEY=$(cat $HOME/.ssh/id_rsa.pub)" ...

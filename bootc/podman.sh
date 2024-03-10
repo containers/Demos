@@ -24,6 +24,7 @@ echo_color() {
     echo "${cyan}$1${reset}"
 }
 
+step=1
 
 DEFAULT_APP="lamp"
 DEFAULT_REGISTRY="quay.io/rhatdan"
@@ -83,14 +84,18 @@ OS=${OS:-${DEFAULT_OS}}
 IMAGE=${REGISTRY}/${APP}
 
 function init {
-    sudo bash -c "dnf -y install podman zstd 2>&1 >/dev/null && dnf -y update podman zstd"
-    read
+    sudo bash -c "dnf -y install podman zstd && dnf -y update podman zstd" &>/dev/null
     clear
 }
 
+function ctr (
+    echo -n $step
+    ((step+=1))
+)
+
 function build {
     echo_color "
-Build bootable OCI Image"
+Step $(ctr): Build bootable OCI Image"
     if [ $APP == "machine" ]; then
 	podman rmi --force --ignore localhost/fcos
 	exec_color "cat $APP/Containerfile.fcos"
@@ -103,15 +108,22 @@ Build bootable OCI Image"
     exec_color "podman build --build-arg=\"SSHPUBKEY=$(cat $HOME/.ssh/id_rsa.pub)\" --arch=${ARCH} $FROM--manifest ${IMAGE} $APP/"
 }
 
-function test {
+function rebuild {
+    echo_color "
+Step $(ctr): Rebuild bootable OCI Image with fixed services enabled"
+    exec_color "sed 's/^#RUN systemctl/RUN systemctl/' $APP/Containerfile | podman build --build-arg=\"SSHPUBKEY=$(cat $HOME/.ssh/id_rsa.pub)\" --file - --arch=${ARCH} --manifest ${IMAGE} $APP/"
+}
+
+function oci_test {
     echo_color "
 Test bootable OCI image as a container"
-    exec_color "podman run --pull=never --rm -ti ${IMAGE} sh"
+    exec_color "podman run --privileged --pull=never --rm -t ${IMAGE}"
+    exec_color "echo oops"
 }
 
 function test_crun_vm {
     echo_color "
-Test VM using crun-vm"
+Step $(ctr): Test VM using crun-vm"
     tmpdir=$(mktemp -d);
     exec_color "cp ${PWD}/image/${APP}.${TYPE} $tmpdir/${APP}.${TYPE}"
     exec_color "podman --runtime crun-vm run -ti --rootfs $tmpdir"
@@ -120,14 +132,17 @@ Test VM using crun-vm"
 
 function push {
     echo_color "
-Push generated manifest to container registry"
+Step $(ctr): Push generated manifest to container registry"
     exec_color "podman login $REGISTRY"
     exec_color "podman manifest push --all ${IMAGE}"
+}
+function demo {
+    echo_color "Time for video"
 }
 
 function create_disk_image {
     echo_color "
-Creating Disk Image $1 with bootc-image-builder"
+Step $(ctr): Creating Disk Image $1 with bootc-image-builder"
     TYPE=$1
     exec_color "sudo REGISTRY_AUTH_FILE=$XDG_RUNTIME_DIR/containers/auth.json podman run --rm -it --platform=${OS}/${ARCH} --privileged -v .:/output -v ${storedir}:/store --pull newer quay.io/centos-bootc/bootc-image-builder --type $TYPE ${IMAGE}:latest"
     exec_color "sudo chown -R $UID:$UID ."
@@ -139,7 +154,7 @@ Creating Disk Image $1 with bootc-image-builder"
 
 function create_manifest {
     echo_color "
-Populate OCI manifest with artifact $1"
+Step $(ctr): Populate OCI manifest with artifact $1"
     TYPE=$1
     new_image="image/$(basename ${IMAGE}).${TYPE}.zst"
     exec_color "podman manifest add ${VARIANT} --os ${OS} --arch=${ARCH} --artifact --artifact-type application/x-qemu-disk --annotation disktype=${TYPE} ${IMAGE} ${new_image}"
@@ -147,13 +162,13 @@ Populate OCI manifest with artifact $1"
 
 function push_manifest {
     echo_color "
-Push OCI manifest and artifacts to container registry"
+Step $(ctr): Push OCI manifest and artifacts to container registry"
     exec_color "podman manifest push --all ${IMAGE}"
 }
 
 function inspect {
     echo_color "
-Inpspect the OCI Manigest"
+Step $(ctr): Inpspect the OCI Manigest"
     exec_color "skopeo inspect --raw docker://${IMAGE}:latest | json_pp"
 }
 
@@ -169,15 +184,21 @@ Modify OCI Image ${IMAGE} to support nvidia"
     exec_color "podman build --arch=${ARCH} --from ${IMAGE}-ami -t ${IMAGE}-nvidia examples/nvidia"
 }
 
-init
-build
-test
+if [ -Z "$1" ]; then
+    init
+    build
+    oci_test
+    exit
+fi
+
 push
+demo
 create_disk_image $TYPE
+test_crun_vm
 create_disk_image ami
 create_manifest $TYPE
 create_manifest ami
+rebuild
 push_manifest
 inspect
 clone_containerfiles
-test_crun_vm
