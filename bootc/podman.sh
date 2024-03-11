@@ -155,6 +155,7 @@ function demo {
 Time for video
 
 "
+    read
 }
 
 function create_disk_image {
@@ -191,7 +192,7 @@ Step $(ctr): Inpspect the OCI Manigest"
 function clone_containerfiles {
     echo_color "
 Modify OCI Image ${IMAGE} to support cloud-init"
-    exec_color "git clone https://gitlab.com/bootc-org/examples 2>/dev/null | (cd examples; git pull origin main)"
+    exec_color "git clone https://gitlab.com/bootc-org/examples 2>/dev/null || (cd examples; git pull origin main)"
     exec_color "cat examples/cloud-init/Containerfile"
     exec_color "podman build --arch=${ARCH} --from ${IMAGE} -t ${IMAGE}-ami examples/cloud-init"
     echo_color "
@@ -202,42 +203,59 @@ Modify OCI Image ${IMAGE} to support nvidia"
 
 function clone_ai {
     echo_color "
-Modify OCI Image ${IMAGE} to support cloud-init"
-    exec_color "git clone https://gitlab.com/bootc-org/examples 2>/dev/null | (cd examples; git pull origin main)"
-    exec_color "cat examples/cloud-init/Containerfile"
-    exec_color "podman build --arch=${ARCH} --from ${IMAGE} -t ${IMAGE}-ami examples/cloud-init"
-    echo_color "
-Modify OCI Image ${IMAGE} to support nvidia"
-    exec_color "cat examples/nvidia/Containerfile"
-    exec_color "podman build --arch=${ARCH} --from ${IMAGE}-ami -t ${IMAGE}-nvidia examples/nvidia"
+Clone AI and explore what is available for use with the Podman Desktop AI Studio"
+    exec_color "git clone https://github.com/redhat-et/locallm 2>/dev/null || (cd locallm; git pull origin main)"
+    exec_color "cd locallm; bash"
 }
 
-if [ "$1" == 1 ]; then
-    init
-    build
-    oci_test
-    exit
-fi
 
-if [ "$1" == 2 ]; then
-    push
-    demo
-    rebuild
-    push
-    demo
-    read
-    create_disk_image $TYPE
-    test_crun_vm
-fi
+case "$1" in
+    1)
+	init
+	build
+	oci_test
+	;;
+    2)
+	push
+	demo
+	rebuild
+	push
+	demo
+	;;
+    3)
+	create_disk_image $TYPE
+	test_crun_vm
+	;;
+    4)
+	create_disk_image ami
+	create_manifest $TYPE
+	create_manifest ami
+	push_manifest
+	inspect
+	;;
+    5)
+	clone_containerfiles
+	;;
+    6)
+	clone_ai
+	;;
+    *)
+	echo_color "
+Two run this demonstration users must specify specific sections to demonstrate
 
-if [ "$1" == 3 ]; then
-    create_disk_image ami
-    create_manifest $TYPE
-    create_manifest ami
-    push_manifest
-    inspect
-    clone_containerfiles
-fi
-if [ "$1" == 4 ]; then
-    echo hello
-fi
+    1) Build a bootable OCI Container image and then testing it as an OCI container image
+    2) Push the container image to a container registry, demonstrate converting a running
+       AMI to the bootable container image. Then updating the image and rebuilding it.
+    3) Convert the OCI Image to an $TYPE and test the image locally using crun-vm to make
+       sure the image works proplery.
+    4) Convert the OCI Image to an AMI disk image, add the $TYPE and AMI diskimage to the
+       OCI image manifest and finally push the OCI Manifest and the disk images to a
+       container registry. Finally inspect the manifest to see how tools could pull down
+       specific images.
+    5) Add cloud-init and nvidia libraries to make it easier to run your image in the cloud
+       with Nvidia GPUs.
+    6) Explore and run containers using content from the Red Hat AI Studio on Linux. 
+"
+
+	;;
+esac
