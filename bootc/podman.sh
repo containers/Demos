@@ -10,16 +10,16 @@ cyan=$(tput setaf 6)
 reset=$(tput sgr0)
 
 storedir=/tmp/store
-mkdir -p $storedir
+mkdir -p "${storedir}"
 
 read_color() {
-    read -p "${bold}$1${reset}"
+    read -r "${bold}$1${reset}"
 }
 
 exec_color() {
     echo -n "
 ${bold}$ $1${reset}"
-    read 
+    read -r
     bash -c "$1"
 }
 
@@ -100,7 +100,8 @@ function ctr {
 function build {
     echo_color "
 Step $(ctr): Build bootable OCI Image"
-    if [ $APP == "machine" ]; then
+    FROM=""
+    if [ "${APP}" == "machine" ]; then
 	podman rmi --force --ignore localhost/fcos
 	exec_color "cat $APP/Containerfile.fcos"
 	exec_color "podman build --arch ${ARCH} --manifest localhost/fcos -f $APP/Containerfile.fcos $APP/"
@@ -109,13 +110,13 @@ Step $(ctr): Build bootable OCI Image"
     exec_color "cat $APP/Containerfile"
     exec_color "podman manifest exists ${IMAGE} && podman manifest rm ${IMAGE} || true"
     exec_color "podman rmi --force ${IMAGE}"
-    exec_color "podman build --build-arg=\"SSHPUBKEY=$(cat $HOME/.ssh/id_rsa.pub)\" --arch=${ARCH} $FROM--manifest ${IMAGE} $APP/"
+    exec_color "podman build --build-arg=\"SSHPUBKEY=$(cat "${HOME}/.ssh/id_rsa.pub")\" --arch=${ARCH} ${FROM}--manifest ${IMAGE} ${APP}/"
 }
 
 function rebuild {
     echo_color "
 Step $(ctr): Rebuild bootable OCI Image with fixed services enabled"
-    exec_color "sed 's/^#RUN systemctl/RUN systemctl/' $APP/Containerfile | podman build --build-arg=\"SSHPUBKEY=$(cat $HOME/.ssh/id_rsa.pub)\" --file - --arch=${ARCH} --manifest ${IMAGE} $APP/"
+    exec_color "sed 's/^#RUN systemctl/RUN systemctl/' ${APP}/Containerfile | podman build --build-arg=\"SSHPUBKEY=$(cat "${HOME}/.ssh/id_rsa.pub")\" --file - --arch=${ARCH} --manifest ${IMAGE} ${APP}/"
 }
 
 function oci_test {
@@ -129,7 +130,7 @@ function test_crun_vm {
     echo_color "
 Step $(ctr): Test VM using crun-vm"
     tmpdir=$(mktemp -d /tmp/podman.demo-XXXXX);
-    exec_color "zstd -d ${PWD}/image/${APP}.${TYPE}.zst -o $tmpdir/${APP}.${TYPE}"
+    exec_color "zstd -d ${PWD}/image/${APP}.${TYPE}.zst -o ${tmpdir}/${APP}.${TYPE}"
     echo_color "
 After starting the next command you will need to go to another terminal and run podman commands against the
 VM to test it.
@@ -142,14 +143,14 @@ podman stop -l
 
 "
 
-    exec_color "podman --runtime crun-vm run -ti --rootfs $tmpdir"
-    exec_color "rm -rf $tmpdir"
+    exec_color "podman --runtime crun-vm run -ti --rootfs ${tmpdir}"
+    exec_color "rm -rf ${tmpdir}"
 }
 
 function push {
     echo_color "
 Step $(ctr): Push generated manifest to container registry"
-    exec_color "podman login $REGISTRY"
+    exec_color "podman login ${REGISTRY}"
     exec_color "podman manifest push --all ${IMAGE}"
 }
 function demo {
@@ -158,7 +159,7 @@ function demo {
 Time for video
 
 "
-    read
+    read -r
 }
 
 function create_disk_image {
@@ -167,7 +168,7 @@ Step $(ctr): Creating Disk Image $1 with bootc-image-builder"
     TYPE=$1
     exec_color "sudo REGISTRY_AUTH_FILE=$XDG_RUNTIME_DIR/containers/auth.json podman run --rm -it --platform=${OS}/${ARCH} --privileged -v .:/output -v ${storedir}:/store --pull newer quay.io/centos-bootc/bootc-image-builder --type $TYPE --chown $UID:$UID ${IMAGE}:latest "
     mkdir -p image
-    new_image="image/$(basename ${IMAGE}).${TYPE}"
+    new_image="image/$(basename "${IMAGE}").${TYPE}"
     exec_color "mv ${TYPE}/disk.${TYPE} ${new_image} 2>/dev/null || mv image/disk.* ${new_image}"
     exec_color "zstd -f --rm ${new_image}"
 }
@@ -176,7 +177,7 @@ function create_manifest {
     echo_color "
 Step $(ctr): Populate OCI manifest with artifact $1"
     TYPE=$1
-    new_image="image/$(basename ${IMAGE}).${TYPE}.zst"
+    new_image="image/$(basename "${IMAGE}").${TYPE}.zst"
     exec_color "podman manifest add ${VARIANT} --os ${OS} --arch=${ARCH} --artifact --artifact-type application/x-qemu-disk --annotation disktype=${TYPE} ${IMAGE} ${new_image}"
 }
 
@@ -226,12 +227,12 @@ case "$1" in
 	demo
 	;;
     3)
-	create_disk_image $TYPE
+	create_disk_image "${TYPE}"
 	test_crun_vm
 	;;
     4)
 	create_disk_image ami
-	create_manifest $TYPE
+	create_manifest "${TYPE}"
 	create_manifest ami
 	push_manifest
 	inspect
@@ -257,7 +258,7 @@ Two run this demonstration users must specify specific sections to demonstrate
        specific images.
     5) Add cloud-init and nvidia libraries to make it easier to run your image in the cloud
        with Nvidia GPUs.
-    6) Explore and run containers using content from the Red Hat AI Studio on Linux. 
+    6) Explore and run containers using content from the Red Hat AI Studio on Linux.
 "
 
 	;;
