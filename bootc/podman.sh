@@ -31,7 +31,6 @@ step=1
 
 DEFAULT_APP="lamp"
 DEFAULT_REGISTRY="quay.io/rhatdan"
-DEFAULT_IMAGE="quay.io/rhatdan/$APP"
 DEFAULT_TYPE="qcow2"
 DEFAULT_ARCH=$(uname -m)
 DEFAULT_VARIANT=""
