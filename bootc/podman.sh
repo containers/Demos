@@ -1,4 +1,7 @@
-#!/bin/sh -e
+#!/bin/bash
+
+set -eou pipefail
+IFS=$'\n\t'
 
 # Setting up some colors for helping read the demo output.
 # Comment out any of the below to turn off that color.
