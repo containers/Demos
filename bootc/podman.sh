@@ -88,10 +88,13 @@ VARIANT=${DEFAULT_VARIANT}
 OS=${OS:-${DEFAULT_OS}}
 IMAGE=${REGISTRY}/${APP}
 
+
 function init {
     rm -rf /tmp/podman.demo*
-    sudo bash -c "dnf -y install podman zstd && dnf -y update podman zstd" &>/dev/null
-    clear
+    if ! rpm -q --quiet podman && ! rpm -q --quiet zstd; then
+        sudo bash -c "dnf -y install podman zstd && dnf -y update podman zstd" &>/dev/null
+        clear
+    fi
 }
 
 function ctr {
