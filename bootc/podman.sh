@@ -89,10 +89,10 @@ function init {
     clear
 }
 
-function ctr (
+function ctr {
     echo -n $step
     ((step+=1))
-)
+}
 
 function build {
     echo_color "
