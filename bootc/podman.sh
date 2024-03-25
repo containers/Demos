@@ -218,7 +218,7 @@ Clone AI and explore what is available for use with the Podman Desktop AI Studio
 }
 
 
-case "$1" in
+case "${1:-""}" in
     1)
 	init
 	build
