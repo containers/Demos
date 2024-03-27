@@ -34,7 +34,7 @@ DEFAULT_ARCH=$(uname -m)
 DEFAULT_VARIANT=""
 DEFAULT_OS=$(uname)
 
-OPTSTRING=":a:hr:o:v:A:"
+OPTSTRING=":a:hr:o:v:A:t:"
 function help {
 	echo -n "
 Valid options:
@@ -51,18 +51,23 @@ while getopts ${OPTSTRING} opt; do
   case ${opt} in
     r)
       REGISTRY="${OPTARG}"
+      shift; shift
       ;;
     a)
       ARCH="${OPTARG}"
+      shift; shift
       ;;
     A)
       APP="${OPTARG}"
+      shift; shift
       ;;
     o)
       OS="${OPTARG}"
+      shift; shift
       ;;
     v)
       VARIANT="--variant ${OPTARG}"
+      shift; shift
       ;;
     h)
       help; exit 0
@@ -80,11 +85,12 @@ shift $((OPTIND - 1));
 
 REGISTRY=${REGISTRY:-${DEFAULT_REGISTRY}}
 APP=${APP:-${DEFAULT_APP}}
-TYPE=${TYPE:-${DEFAULT_TYPE}}
 ARCH=${ARCH:-${DEFAULT_ARCH}}
-VARIANT=${DEFAULT_VARIANT}
 OS=${OS:-${DEFAULT_OS}}
-IMAGE=${REGISTRY}/${APP}
+REGISTRY=${REGISTRY:-${DEFAULT_REGISTRY}}
+TYPE=${TYPE:-${DEFAULT_TYPE}}
+VARIANT=${VARIANT-${DEFAULT_VARIANT}}
+IMAGE=${REGISTRY}/${APP}:1.0
 
 
 function init {
@@ -106,9 +112,9 @@ Build bootable OCI Image"
 	FROM="--from localhost/fcos "
     fi
     exec_color "cat $APP/Containerfile"
-    exec_color "podman manifest exists ${IMAGE} && podman manifest rm ${IMAGE} || true"
-    exec_color "podman rmi --force ${IMAGE}"
-    exec_color "podman build --build-arg=\"SSHPUBKEY=$(cat "${HOME}/.ssh/id_rsa.pub")\" --arch=${ARCH} ${FROM}--manifest ${IMAGE} ${APP}/"
+
+    exec_color "podman manifest exists ${IMAGE} && podman manifest rm ${IMAGE} || podman rmi --force ${IMAGE}"
+    exec_color "podman build --build-arg=\"SSHPUBKEY=$(cat $HOME/.ssh/id_rsa.pub)\" --arch=${ARCH} $FROM--manifest ${IMAGE} $APP/"
 }
 
 function rebuild {
@@ -145,12 +151,17 @@ podman stop -l
     exec_color "rm -rf ${tmpdir}"
 }
 
-function push {
+function login {
     echo_color "
 Push generated manifest to container registry"
+
     exec_color "podman login ${REGISTRY}"
+}
+
+function push {
     exec_color "podman manifest push --all ${IMAGE}"
 }
+
 function demo {
     echo_color "
 
@@ -162,21 +173,24 @@ Time for video
 
 function create_disk_image {
     echo_color "
-Creating Disk Image $1 with bootc-image-builder"
-    TYPE=$1
-    exec_color "sudo REGISTRY_AUTH_FILE=$XDG_RUNTIME_DIR/containers/auth.json podman run --rm -it --platform=${OS}/${ARCH} --privileged -v .:/output -v ${storedir}:/store --pull newer quay.io/centos-bootc/bootc-image-builder --type $TYPE --chown $UID:$UID ${IMAGE}:latest "
+Creating disk images $1 with bootc-image-builder"
+    exec_color "sudo podman run -v $XDG_RUNTIME_DIR/containers/auth.json:/run/containers/0/auth.json --rm -it --platform=${OS}/${ARCH} --privileged -v .:/output -v ${storedir}:/store --pull newer quay.io/centos-bootc/bootc-image-builder $_TYPE --chown $UID:$UID ${IMAGE} "
+}
+
+function rename {
+    _TYPE=$1
     mkdir -p image
-    new_image="image/$(basename "${IMAGE}").${TYPE}"
-    exec_color "mv ${TYPE}/disk.${TYPE} ${new_image} 2>/dev/null || mv image/disk.* ${new_image}"
+    new_image="image/$(basename ${IMAGE}).${_TYPE}"
+    exec_color "mv ${_TYPE}/disk.${_TYPE} ${new_image} 2>/dev/null || mv image/disk.* ${new_image}"
     exec_color "zstd -f --rm ${new_image}"
 }
 
 function create_manifest {
     echo_color "
 Populate OCI manifest with artifact $1"
-    TYPE=$1
-    new_image="image/$(basename "${IMAGE}").${TYPE}.zst"
-    exec_color "podman manifest add ${VARIANT} --os ${OS} --arch=${ARCH} --artifact --artifact-type application/x-qemu-disk --annotation disktype=${TYPE} ${IMAGE} ${new_image}"
+    _TYPE=$1
+    new_image="image/$(basename ${IMAGE}).${_TYPE}.zst"
+    exec_color "podman manifest add ${VARIANT} --os ${OS} --arch=${ARCH} --artifact --artifact-type application/x-qemu-disk --annotation disktype=${_TYPE} ${IMAGE} ${new_image}"
 }
 
 function push_manifest {
@@ -188,7 +202,7 @@ Push OCI manifest and artifacts to container registry"
 function inspect {
     echo_color "
 Inspect the OCI Manigest"
-    exec_color "skopeo inspect --raw docker://${IMAGE}:latest | json_pp"
+    exec_color "skopeo inspect --raw docker://${IMAGE}:1.1 | json_pp"
 }
 
 function clone_containerfiles {
@@ -218,6 +232,7 @@ case "${1:-""}" in
 	oci_test
 	;;
     2)
+	login
 	push
 	demo
 	rebuild
@@ -225,12 +240,13 @@ case "${1:-""}" in
 	demo
 	;;
     3)
-	create_disk_image "${TYPE}"
+	create_disk_image "--type $TYPE --type ami"
+	rename $TYPE
+	rename ami
 	test_crun_vm
 	;;
     4)
-	create_disk_image ami
-	create_manifest "${TYPE}"
+	create_manifest $TYPE
 	create_manifest ami
 	push_manifest
 	inspect
@@ -243,7 +259,7 @@ case "${1:-""}" in
 	;;
     *)
 	echo_color "
-Two run this demonstration users must specify specific sections to demonstrate
+Users must specify specific sections to demonstrate 1-6 to run this demonstration.
 
     1) Build a bootable OCI Container image and then testing it as an OCI container image
     2) Push the container image to a container registry, demonstrate converting a running
