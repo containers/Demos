@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -eou pipefail
 IFS=$'\n\t'
 
