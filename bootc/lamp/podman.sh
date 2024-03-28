@@ -2,7 +2,9 @@
 
 DEFAULT_APP="lamp"
 
-. ../podman_helper.sh
+export DEFAULT_APP="lamp"
+
+source ../podman_helper.sh
 
 function build {
     echo_color "
