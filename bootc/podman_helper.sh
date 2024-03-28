@@ -77,9 +77,6 @@ Invalid option: -${OPTARG}."
   esac
 done
 
-# shift all the args so we can use positional args after the flags (i.e. ./podman.sh -r string -A string 1)
-shift $((OPTIND - 1));
-
 REGISTRY=${REGISTRY:-${DEFAULT_REGISTRY}}
 APP=${APP:-${DEFAULT_APP}}
 ARCH=${ARCH:-${DEFAULT_ARCH}}
