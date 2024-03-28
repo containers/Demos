@@ -99,7 +99,7 @@ function init {
 function login {
     echo_color "
 Push generated manifest to container registry"
-    exec_color "podman login $REGISTRY"
+    exec_color "podman login ${REGISTRY}"
 }
 
 function push {
@@ -125,7 +125,7 @@ Creating disk images $1 with bootc-image-builder"
 function rename {
     _TYPE=$1
     mkdir -p image
-    new_image="image/$(basename ${IMAGE}).${_TYPE}"
+    new_image="image/$(basename "${IMAGE}").${_TYPE}"
     exec_color "mv ${_TYPE}/disk.${_TYPE} ${new_image} 2>/dev/null || mv image/disk.* ${new_image}"
     exec_color "zstd -f --rm ${new_image}"
 }
@@ -146,7 +146,7 @@ function create_manifest {
     echo_color "
 Populate OCI manifest with artifact $1"
     _TYPE=$1
-    new_image="image/$(basename ${IMAGE}).${_TYPE}.zst"
+    new_image="image/$(basename "${IMAGE}").${_TYPE}.zst"
     exec_color "podman manifest add ${VARIANT} --os ${OS} --arch=${ARCH} --artifact --artifact-type application/x-qemu-disk --annotation disktype=${_TYPE} ${IMAGE} ${new_image}"
 }
 
