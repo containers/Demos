@@ -54,7 +54,7 @@ case "${1:-""}" in
 	;;
     2)
 	login
-	push
+	push_manifest
 	demo
 	;;
     3)
