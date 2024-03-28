@@ -1,7 +1,5 @@
 #!/bin/bash
 
-DEFAULT_APP="lamp"
-
 export DEFAULT_APP="lamp"
 
 source ../podman_helper.sh
