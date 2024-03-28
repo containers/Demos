@@ -117,9 +117,14 @@ Time for video
 }
 
 function create_disk_image {
+    if [ -f "${XDG_RUNTIME_DIR}/containers/auth.json" ]; then
+        AUTH_JSON="${XDG_RUNTIME_DIR}/containers/auth.json"
+    else
+        AUTH_JSON="${HOME}/.docker/config.json"
+    fi
     echo_color "
 Creating disk images $1 with bootc-image-builder"
-    exec_color "sudo podman run -v $XDG_RUNTIME_DIR/containers/auth.json:/run/containers/0/auth.json --rm -it --platform=${OS}/${ARCH} --privileged -v .:/output -v ${storedir}:/store --pull newer quay.io/centos-bootc/bootc-image-builder $_TYPE --chown $UID:$UID ${IMAGE} "
+    exec_color "sudo podman run -v ${AUTH_JSON}:/run/containers/0/auth.json --rm -it --platform=${OS}/${ARCH} --privileged -v .:/output -v ${storedir}:/store --pull newer quay.io/centos-bootc/bootc-image-builder $1 --chown ${UID}:${UID} ${IMAGE} "
 }
 
 function rename {
