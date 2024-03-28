@@ -50,23 +50,18 @@ while getopts ${OPTSTRING} opt; do
   case ${opt} in
     r)
       REGISTRY="${OPTARG}"
-      shift; shift
       ;;
     a)
       ARCH="${OPTARG}"
-      shift; shift
       ;;
     A)
       APP="${OPTARG}"
-      shift; shift
       ;;
     o)
       OS="${OPTARG}"
-      shift; shift
       ;;
     v)
       VARIANT="--variant ${OPTARG}"
-      shift; shift
       ;;
     h)
       help; exit 0
@@ -78,6 +73,9 @@ Invalid option: -${OPTARG}."
       ;;
   esac
 done
+
+# shift all the args so we can use positional args after the flags (i.e. ./podman.sh -r string -A string 1)
+shift $((OPTIND - 1));
 
 REGISTRY=${REGISTRY:-${DEFAULT_REGISTRY}}
 APP=${APP:-${DEFAULT_APP}}
@@ -91,7 +89,7 @@ IMAGE=${REGISTRY}/${APP}:1.0
 function init {
     rm -rf /tmp/podman.demo*
     if ! rpm -q --quiet podman && ! rpm -q --quiet zstd; then
-        sudo bash -c "dnf -y install podman zstd && dnf -y update podman zstd" &>/dev/null
+        sudo bash -c "dnf -y install podman git zstd && dnf -y update podman git zstd" &>/dev/null
         clear
     fi
 }
