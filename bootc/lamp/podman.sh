@@ -23,6 +23,9 @@ Build bootable OCI Image"
 }
 
 function test_crun_vm {
+    if ! command -v crun-vm; then
+        sudo bash -c "dnf -y install crun-vm"
+    fi
     echo_color "
 Test VM using crun-vm"
     tmpdir=$(mktemp -d /tmp/podman.demo-XXXXX);
