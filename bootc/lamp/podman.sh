@@ -2,7 +2,9 @@
 
 DEFAULT_APP="lamp"
 
-. ../podman_helper.sh
+export DEFAULT_APP="lamp"
+
+source ../podman_helper.sh
 
 function build {
     echo_color "
@@ -17,10 +19,13 @@ Build bootable OCI Image"
     exec_color "cat $APP/Containerfile"
 
     exec_color "podman manifest exists ${IMAGE} && podman manifest rm ${IMAGE} || podman rmi --force ${IMAGE}"
-    exec_color "podman build --build-arg=\"SSHPUBKEY=$(cat $HOME/.ssh/id_rsa.pub)\" --arch=${ARCH} $FROM--manifest ${IMAGE} $APP/"
+    exec_color "podman build --build-arg=\"SSHPUBKEY=$(cat "${HOME}/.ssh/id_rsa.pub")\" --arch=${ARCH} $FROM--manifest ${IMAGE} $APP/"
 }
 
 function test_crun_vm {
+    if ! command -v crun-vm; then
+        sudo bash -c "dnf -y install crun-vm"
+    fi
     echo_color "
 Test VM using crun-vm"
     tmpdir=$(mktemp -d /tmp/podman.demo-XXXXX);
@@ -49,17 +54,17 @@ case "${1:-""}" in
 	;;
     2)
 	login
-	push
+	push_manifest
 	demo
 	;;
     3)
-	create_disk_image "--type $TYPE --type ami"
-	rename $TYPE
+	create_disk_image "--type ${TYPE} --type ami"
+	rename "${TYPE}"
 	rename ami
 	test_crun_vm
 	;;
     4)
-	create_manifest $TYPE
+	create_manifest "${TYPE}"
 	create_manifest ami
 	push_manifest
 	inspect
