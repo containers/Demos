@@ -24,6 +24,4 @@ RUN mkdir /usr/etc-system && \
     echo $SSHPUBKEY > /usr/etc-system/root.keys && chmod 0600 /usr/etc-system/root.keys
 
 # The following steps should be done in the bootc image.
-CMD [ "/sbin/init" ]
-STOPSIGNAL SIGRTMIN+3
 RUN rpm --setcaps shadow-utils

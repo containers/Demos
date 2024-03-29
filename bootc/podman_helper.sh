@@ -166,6 +166,6 @@ Inspect the OCI Manigest"
 function oci_test {
     echo_color "
 Test bootable OCI image as a container"
-    exec_color "podman run --privileged --pull=never --rm -t ${IMAGE}"
+    exec_color "podman run --privileged --rm -it ${IMAGE} /sbin/init"
 }
 
