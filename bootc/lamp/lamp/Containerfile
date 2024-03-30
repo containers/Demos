@@ -1,6 +1,3 @@
-# FROM registry-proxy.engineering.redhat.com/rh-osbs/rhel9-rhel_bootc:latest
-# ADD rhel9.repo /etc/yum.repos.d/
-# RUN dnf module enable -y php:8.2 nginx:1.22
 FROM quay.io/centos-bootc/centos-bootc:stream9
 RUN dnf -y update; dnf install -y httpd mariadb mariadb-server php-fpm php-mysqlnd && dnf clean all && rm -rf /var/cache /var/log/dnf
 ADD var var
@@ -14,7 +11,4 @@ RUN mkdir /usr/etc-system && \
     echo 'AuthorizedKeysFile /usr/etc-system/%u.keys' >> /etc/ssh/sshd_config.d/30-auth-system.conf && \
     echo $SSHPUBKEY > /usr/etc-system/root.keys && chmod 0600 /usr/etc-system/root.keys
 
-# The following steps should be done in the bootc image.
-CMD [ "/sbin/init" ]
-STOPSIGNAL SIGRTMIN+3
 RUN rpm --setcaps shadow-utils
