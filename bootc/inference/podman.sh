@@ -34,7 +34,7 @@ function build {
 
     login registry.redhat.io
 
-    exec_color "podman build --security-opt label=disable -v ${AUTH_JSON}:/run/containers/0/auth.json --cap-add SYS_ADMIN --from registry.redhat.io/rhel9-beta/rhel-bootc:9.4 --build-arg=SERVERIMAGE=${REGISTRY}/model_server:1.0 --build-arg=APPIMAGE=${REGISTRY}/${APP}:1.0 --build-arg=MODELIMAGE=${REGISTRY}/mymodel:1.0 --build-arg "SSHPUBKEY=$(cat ~/.ssh/id_rsa.pub)" -t ${REGISTRY}/${APP}-bootc:1.0 -f ai-lab-recipes/recipes/natural_language_processing/${APP}/bootc/Containerfile ai-lab-recipes/recipes/natural_language_processing/${APP}"
+    exec_color "podman build --security-opt label=disable -v ${AUTH_JSON}:/run/containers/0/auth.json --cap-add SYS_ADMIN --from registry.redhat.io/rhel9-beta/rhel-bootc:9.4 --build-arg=SERVERIMAGE=${REGISTRY}/model_server:1.0 --build-arg=APPIMAGE=${REGISTRY}/${APP}:1.0 --build-arg=MODELIMAGE=${REGISTRY}/mymodel:1.0 --build-arg \"SSHPUBKEY=$(cat ~/.ssh/id_rsa.pub)\" -t ${REGISTRY}/${APP}-bootc:1.0 -f ai-lab-recipes/recipes/natural_language_processing/${APP}/bootc/Containerfile ai-lab-recipes/recipes/natural_language_processing/${APP}"
 
     exec_color "podman push ${REGISTRY}/${APP}-bootc:1.0"
 }
