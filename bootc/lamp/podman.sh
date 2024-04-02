@@ -51,7 +51,7 @@ case "${1:-""}" in
 	oci_test
 	;;
     2)
-	login
+	login ${REGISTRY}
 	push_manifest
 	demo
 	;;
