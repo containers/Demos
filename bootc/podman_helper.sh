@@ -97,7 +97,7 @@ function init {
 function login {
     echo_color "
 Push generated manifest to container registry"
-    exec_color "podman login ${REGISTRY}"
+    exec_color "podman login $1"
 }
 
 function push {

@@ -12,7 +12,7 @@ function clone_ai {
 
     exec_color "git clone https://github.com/containers/ai-lab-recipes 2>/dev/null || (cd ai-lab-recipes; git pull origin main)"
 
-    exec_color "podman build --build-arg MODEL_URL=https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf -t ${REGISTRY}/mymodel ai-lab-recipes/models"
+    exec_color "podman build --build-arg MODEL_URL=https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf -t ${REGISTRY}/mymodel:1.0 ai-lab-recipes/models"
 
     exec_color "podman push ${REGISTRY}/mymodel:1.0"
 
@@ -32,14 +32,16 @@ function build {
         AUTH_JSON="${HOME}/.docker/config.json"
     fi
 
-    exec_color "podman build --security-opt label=disable -v ${AUTH_JSON}:/run/containers/0/auth.json --cap-add SYS_ADMIN --from registry.redhat.io/rhel9-beta/rhel-bootc:9.4 --build-arg=SERVERIMAGE=${REGISTRY}/model_server:1.0 --build-arg=APPIMAGE=${REGISTRY}/${APP}:1.0 --build-arg=MODELIMAGE=${REGISTRY}/mymodel:1.0 --build-arg "SSHPUBKEY=$(cat ~/.ssh/mykey.pub)" -t ${REGISTRY}/${APP}-bootc:1.0 -f ai-lab-recipes/recipes/natural_language_processing/${APP}/bootc/Containerfile ai-lab-recipes/recipes/natural_language_processing/${APP}"
+    login registry.redhat.io
+
+    exec_color "podman build --security-opt label=disable -v ${AUTH_JSON}:/run/containers/0/auth.json --cap-add SYS_ADMIN --from registry.redhat.io/rhel9-beta/rhel-bootc:9.4 --build-arg=SERVERIMAGE=${REGISTRY}/model_server:1.0 --build-arg=APPIMAGE=${REGISTRY}/${APP}:1.0 --build-arg=MODELIMAGE=${REGISTRY}/mymodel:1.0 --build-arg "SSHPUBKEY=$(cat ~/.ssh/id_rsa.pub)" -t ${REGISTRY}/${APP}-bootc:1.0 -f ai-lab-recipes/recipes/natural_language_processing/${APP}/bootc/Containerfile ai-lab-recipes/recipes/natural_language_processing/${APP}"
 
     exec_color "podman push ${REGISTRY}/${APP}-bootc:1.0"
 }
 
 function step_one {
 	init
-	login
+	login ${REGISTRY}
 	clone_ai
 }
 
