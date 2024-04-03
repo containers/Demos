@@ -9,9 +9,6 @@ bold=$(tput bold)
 cyan=$(tput setaf 6)
 reset=$(tput sgr0)
 
-storedir=/tmp/store
-mkdir -p "${storedir}"
-
 read_color() {
     read -r "${bold}$1${reset}"
 }
@@ -38,11 +35,12 @@ function help {
 	echo -n "
 Valid options:
 
--A APP
--a ARCH
--o OS
--r REGISTRY
--v VARIANT
+-A APP (from ai-lab-recipes, options: chatbot, rag)
+-a ARCH (target arch to build for, default '$(uname -m)')
+-o OS (default '$(uname)')
+-r REGISTRY (default 'quay.io/rhatdan')
+-t TYPE (disk image type, default 'qcow2')
+-v VARIANT 
 "
 }
 
@@ -59,6 +57,9 @@ while getopts ${OPTSTRING} opt; do
       ;;
     o)
       OS="${OPTARG}"
+      ;;
+    t)
+      TYPE="${OPTARG}"
       ;;
     v)
       VARIANT="--variant ${OPTARG}"
@@ -88,9 +89,18 @@ IMAGE=${REGISTRY}/${APP}:1.0
 
 function init {
     rm -rf /tmp/podman.demo*
-    if ! rpm -q --quiet podman && ! rpm -q --quiet zstd; then
-        sudo bash -c "dnf -y install podman git zstd && dnf -y update podman git zstd" &>/dev/null
-        clear
+    if ! command -v podman &> /dev/null; then
+      echo "podman must be installed"
+      exit 1
+    fi
+    if ! command -v git &> /dev/null; then
+      echo "git must be installed"
+      exit 1
+    fi
+    if ! command -v zstd &> /dev/null; then
+      echo "zstd must be installed"
+      echo "run 'dnf install zstd' or 'brew install zstd'"
+      exit 1
     fi
 }
 
@@ -115,6 +125,10 @@ Time for video
 }
 
 function create_disk_image {
+    storedir=$(pwd)/store
+    sudo mkdir -p ${storedir}
+
+    XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
     if [ -f "${XDG_RUNTIME_DIR}/containers/auth.json" ]; then
         AUTH_JSON="${XDG_RUNTIME_DIR}/containers/auth.json"
     else
@@ -122,7 +136,7 @@ function create_disk_image {
     fi
     echo_color "
 Creating disk images $1 with bootc-image-builder"
-    exec_color "sudo podman run -v ${AUTH_JSON}:/run/containers/0/auth.json --rm -it --platform=${OS}/${ARCH} --privileged -v .:/output -v ${storedir}:/store --pull newer quay.io/centos-bootc/bootc-image-builder $1 --chown ${UID}:${UID} ${IMAGE} "
+exec_color "sudo podman run -v ${AUTH_JSON}:/run/containers/0/auth.json --rm -it --privileged -v $(pwd):/output -v ${storedir}:/store --pull newer quay.io/centos-bootc/bootc-image-builder $1 --chown ${UID}:${UID} ${IMAGE} "
 }
 
 function rename {
@@ -166,6 +180,10 @@ Inspect the OCI Manigest"
 function oci_test {
     echo_color "
 Test bootable OCI image as a container"
-    exec_color "podman run --privileged --rm -it ${IMAGE} /sbin/init"
+    podman stop test-bootc
+    exec_color "podman run -d --privileged --name test-bootc --rm -it ${IMAGE} /sbin/init"
+    exec_color "podman exec -it test-bootc podman images"
+    exec_color "podman exec -it test-bootc cat /etc/redhat-release"
+    #exec_color "podman exec -t test-bootc systemctl status ${APP}"
 }
 
