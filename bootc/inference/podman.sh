@@ -26,6 +26,7 @@ function clone_ai {
 }
 
 function build {
+    XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
     if [ -f "${XDG_RUNTIME_DIR}/containers/auth.json" ]; then
         AUTH_JSON="${XDG_RUNTIME_DIR}/containers/auth.json"
     else
