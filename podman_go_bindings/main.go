@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/containers/podman/v4/libpod/define"
-	"github.com/containers/podman/v4/pkg/bindings"
-	"github.com/containers/podman/v4/pkg/bindings/containers"
-	"github.com/containers/podman/v4/pkg/bindings/images"
-	"github.com/containers/podman/v4/pkg/specgen"
+	"github.com/containers/podman/v5/libpod/define"
+	"github.com/containers/podman/v5/pkg/bindings"
+	"github.com/containers/podman/v5/pkg/bindings/containers"
+	"github.com/containers/podman/v5/pkg/bindings/images"
+	"github.com/containers/podman/v5/pkg/specgen"
 )
+
+func ptr[T any](t T) *T {
+	return &t
+}
 
 func main() {
 	fmt.Println("Welcome to the Podman Go bindings tutorial")
@@ -61,7 +65,7 @@ func main() {
 
 	// Container create
 	s := specgen.NewSpecGenerator(rawImage, false)
-	s.Terminal = true
+	s.Terminal = ptr(true)
 	r, err := containers.CreateWithSpec(ctx, s, &containers.CreateOptions{})
 	if err != nil {
 		fmt.Println(err)
