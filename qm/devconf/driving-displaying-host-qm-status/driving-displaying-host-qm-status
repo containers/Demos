@@ -1,0 +1,207 @@
+#!/usr/bin/env python
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# flake8: noqa: E501
+
+import os
+import subprocess
+import threading
+import time
+
+import click
+import cv2
+import pygame
+
+
+class ServiceStatusChecker:
+    """
+    Periodically checks the status of a service and updates its active state in a shared data structure.
+
+    Attributes:
+        interval (int): How often to check the service status, in seconds.
+        item_label (str): Label of the legend item linked to the service.
+        service_name (str): Name of the service to check.
+        service_type (str): Type of the service (e.g., "HOST" or "QM").
+        legend_items (list): List containing the service legend items.
+        ip_address (str): IP address to connect to for checking service status.
+        ssh_port (str): SSH port forward.
+    """
+    def __init__(self, interval, item_label, service_name, service_type, legend_items, ip_address, ssh_port):
+        self.interval = interval
+        self.item_label = item_label
+        self.service_name = service_name
+        self.service_type = service_type
+        self.legend_items = legend_items
+        self.ip_address = ip_address
+        self.ssh_port = ssh_port
+        self.thread = threading.Thread(target=self.check_service_status_periodically)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def check_service_status(self):
+        """Executes the system command to check service status based on service_type and parses the output."""
+        if self.service_type == "HOST":
+            result = subprocess.run(['ssh', f'root@{self.ip_address}',f'-p {self.ssh_port}' , '-oStrictHostKeyChecking=no', '-oUserKnownHostsFile=/dev/null', 'systemctl', 'is-active', self.service_name], capture_output=True, text=True)
+        elif self.service_type == "QM":
+            result = subprocess.run(['ssh', f'root@{self.ip_address}', f'-p {self.ssh_port}' , '-oStrictHostKeyChecking=no', '-oUserKnownHostsFile=/dev/null', 'podman', 'exec', '-it', 'qm', 'systemctl', 'is-active', self.service_name], capture_output=True, text=True)
+        else:
+            return None
+        return 'active' in result.stdout
+
+    def check_service_status_periodically(self):
+        """Continuously checks service status at intervals, updating the legend items as needed."""
+        while True:
+            active_status = self.check_service_status()
+            for item in self.legend_items:
+                if item['label'] == self.item_label:
+                    item["active"] = not active_status
+            time.sleep(self.interval)
+
+class VideoPlayer:
+    """
+    Manages video playback using OpenCV and Pygame for displaying the video on a window.
+
+    Attributes:
+        video_path (str): Path to the video file.
+        screen_size (tuple): The resolution of the window as a tuple (width, height).
+    """
+    def __init__(self, video_path, screen_size):
+        pygame.init()
+        pygame.display.set_caption("DRIVING")
+        self.video_path = video_path
+        self.screen_size = screen_size
+        self.cap = cv2.VideoCapture(self.video_path)
+        if not self.cap.isOpened():
+            print(f"Failed to open video: {self.video_path}")
+            exit()
+        self.fps = self.cap.get(cv2.CAP_PROP_FPS)
+        self.frame_delay = int((1 / self.fps) * 1000)
+        self.screen = pygame.display.set_mode(self.screen_size)
+
+    def play_video(self):
+        """Plays the video frame by frame, looping back to the start if the end is reached."""
+        ret, frame = self.cap.read()
+        if not ret:
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            return
+        frame = cv2.transpose(frame)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_surface = pygame.surfarray.make_surface(frame)
+        self.screen.blit(frame_surface, (0, 0))
+
+class MessageHandler:
+    """
+    Handles displaying messages and visual alerts on the screen.
+
+    Attributes:
+        font (pygame.Font): Font for regular labels.
+        font_message (pygame.Font): Font for displaying messages.
+        circle_radius (int): Radius of the status indicator circle.
+        circle_color (tuple): RGB color of the circle.
+        show_non_fatal_error_message (bool): Flag to show the non-fatal error message.
+    """
+    def __init__(self):
+        self.font = pygame.font.SysFont('arial', 15)
+        self.font_message = pygame.font.SysFont('arial', 20)
+        self.circle_radius = 5
+        self.circle_color = (0, 255, 0)  # Green
+        self.show_non_fatal_error_message = False
+
+    def show_non_fatal_error(self):
+        """Displays a non-fatal error message for 3 seconds."""
+        self.show_non_fatal_error_message = True
+        time.sleep(3)
+        self.show_non_fatal_error_message = False
+
+    def display_messages(self, screen, legend_items, screen_size):
+        """Displays dynamic messages and status indicators based on the current state of legend items."""
+        for item in legend_items:
+            label = self.font.render(item['label'], True, (255, 255, 255))
+            label_rect = label.get_rect(topleft=item['position'])
+            circle_position = (label_rect.left - 30, label_rect.centery)
+            if "HOST" in item['label']:
+                current_circle_color = self.circle_color if not item["active"] else (255, 0, 0)
+            elif item['label'].startswith("QM:"):
+                current_circle_color = self.circle_color if not item["active"] else (255, 255, 0)
+            else:
+                current_circle_color = self.circle_color  # Default to green
+            pygame.draw.circle(screen, current_circle_color, circle_position, self.circle_radius)
+            screen.blit(label, label_rect)
+
+        if any(item["active"] for item in legend_items if "HOST" in item["label"]):
+            must_stop_message = "Must Stop!"
+            rendered_message = self.font_message.render(must_stop_message, True, (255, 0, 0))
+            message_position = (screen_size[0] // 4 - rendered_message.get_width() // 2, (screen_size[1] // 8 + rendered_message.get_height() + 30))
+            screen.blit(rendered_message, message_position)
+
+        if self.show_non_fatal_error_message:
+            rendered_message = self.font_message.render("A non-fatal error happened, will continue", True, (255, 255, 0))
+            message_position = (screen_size[0] // 4 - rendered_message.get_width() // 2, (screen_size[1] // 5 + rendered_message.get_height() + 30))
+            screen.blit(rendered_message, message_position)
+
+@click.command()
+@click.option('--ip', default='192.168.122.166', help='The IP address of machine set with qm.SSH must be set up with no password for easy access.')
+@click.option('--port', default='22', help='The port in case of ssh port forwarding')
+@click.option('--video', default='.driving.mp4', help='Path to the video file.')
+
+def main(ip, port, video):
+    """
+    Initializes and runs the main application integrating video playback and service monitoring.
+    """
+    class MainApplication:
+        def __init__(self, ip_address, port , video_path):
+            self.video_path = video_path
+            self.screen_size = (1024, 768)
+            self.legend_items = [
+                {"label": "HOST: tires", "position": (50, 30), "active": False},
+                {"label": "HOST: safety", "position": (200, 30), "active": False},
+                {"label": "HOST: breaks", "position": (350, 30), "active": False},
+                {"label": "HOST: cruise_control", "position": (500, 30), "active": False},
+                {"label": "QM: radio", "position": (50, self.screen_size[1] - 30), "active": False, "freeze": True},
+                {"label": "QM: maps", "position": (200, self.screen_size[1] - 30), "active": False},
+                {"label": "QM: store", "position": (350, self.screen_size[1] - 30), "active": False},
+                {"label": "QM: stream_audio", "position": (500, self.screen_size[1] - 30), "active": False}
+            ]
+            self.video_player = VideoPlayer(self.video_path, self.screen_size)
+            self.message_handler = MessageHandler()
+            self.ip_address = ip_address
+            self.ssh_port = port
+            self.setup_threads()
+
+        def setup_threads(self):
+            """Initializes threads for monitoring service statuses and displaying error messages."""
+            ServiceStatusChecker(2, "HOST: tires", "container-tires", "HOST", self.legend_items, self.ip_address, self.ssh_port)
+            ServiceStatusChecker(2, "HOST: safety", "container-safety", "HOST", self.legend_items, self.ip_address, self.ssh_port)
+            ServiceStatusChecker(2, "HOST: breaks", "container-breaks", "HOST", self.legend_items, self.ip_address, self.ssh_port)
+            ServiceStatusChecker(5, "HOST: cruise_control", "container-cruise_control", "HOST", self.legend_items, self.ip_address, self.ssh_port)
+            ServiceStatusChecker(2, "QM: radio", "container-radio", "QM", self.legend_items, self.ip_address, self.ssh_port)
+
+        def run(self):
+            """Runs the main application loop, handling video playback and updating the display with messages."""
+            running = True
+            while running:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                self.video_player.play_video()
+                self.message_handler.display_messages(self.video_player.screen, self.legend_items, self.screen_size)
+                pygame.display.flip()
+                pygame.time.wait(self.video_player.frame_delay)
+            pygame.quit()
+
+    app = MainApplication(ip, port, video)
+    app.run()
+
+if __name__ == "__main__":
+    main()
